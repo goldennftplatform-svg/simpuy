@@ -1,0 +1,25 @@
+Puyallup Cinematic Flyover — Render Notes
+=========================================
+Duration: 30 seconds (frames 1-720 @ 24fps)
+Camera: Flyover_Cam (Track To Flyover_LookTarget)
+Path story: high Rainier -> downtown/Pioneer -> fairgrounds circle -> river -> South Hill
+
+EEVEE preview (current):
+  engine = BLENDER_EEVEE
+  resolution = 1280x720 @ 50%
+  frame_step = 2 (preview)
+  taa_render_samples = 8
+
+Final EEVEE:
+  resolution_percentage = 100
+  frame_step = 1
+  taa_render_samples = 64
+  Output: cinematic_flyover/final_
+
+Final Cycles:
+  scene.render.engine = "CYCLES"
+  scene.cycles.samples = 128
+  scene.cycles.use_denoising = True
+  frame_step = 1
+
+Stills: ../cinematic_stills/

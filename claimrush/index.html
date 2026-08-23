@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CLAIMRUSH — Puyallup Valley</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css?v=7" />
+</head>
+<body>
+  <div class="sky sky-hops" aria-hidden="true"></div>
+
+  <main class="shell">
+    <!-- 1 · DIRECTIONS + SAMPLE VIDEO -->
+    <section class="screen active" id="screen-how" data-screen="how">
+      <p class="brand">CLAIMRUSH</p>
+      <h1 class="hero-title">How to play</h1>
+      <p class="copy">Puyallup valley land grab. Three steps:</p>
+
+      <ol class="steps-big">
+        <li>
+          <span class="step-n">1</span>
+          <div>
+            <h3>Tap a square</h3>
+            <p>Open land shows a number (acres). Tap it — it’s yours.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-n">2</span>
+          <div>
+            <h3>Get to 180 acres</h3>
+            <p>Hops = more acres. Blue river = can’t take. First to 180 wins.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-n">3</span>
+          <div>
+            <h3>Beat the other player</h3>
+            <p>Practice vs the computer, or 1v1 a friend with a short code.</p>
+          </div>
+        </li>
+      </ol>
+
+      <div class="sample-block">
+        <p class="eyebrow">Sample — what the valley looks like</p>
+        <div class="video-frame">
+          <video
+            id="sample-video"
+            src="outcomes.mp4"
+            playsinline
+            muted
+            loop
+            controls
+            poster="/skins/skin_hero.png"
+          ></video>
+          <div class="video-badge">SAMPLE FLYOVER</div>
+        </div>
+        <p class="tiny">Watch a few seconds, then continue. Gameplay is tapping squares — not this video.</p>
+      </div>
+
+      <button class="btn primary pulse" id="btn-how" type="button">I get it — continue</button>
+    </section>
+
+    <!-- 2 · NAME -->
+    <section class="screen" id="screen-name" data-screen="name">
+      <p class="eyebrow">Step 2 of 3</p>
+      <h2>Type your name</h2>
+      <p class="copy">This shows on your land.</p>
+      <label class="field">
+        <span>Your name</span>
+        <input id="player-name" type="text" maxlength="16" placeholder="e.g. Max" autocomplete="off" />
+      </label>
+      <div class="chip-row" id="name-chips">
+        <button type="button" data-name="Max">Max</button>
+        <button type="button" data-name="Ava">Ava</button>
+        <button type="button" data-name="Jay">Jay</button>
+      </div>
+      <button class="btn primary" id="btn-name" type="button" disabled>Next — choose game</button>
+    </section>
+
+    <!-- 3 · CHOOSE GAME (simple) -->
+    <section class="screen" id="screen-lobby" data-screen="lobby">
+      <p class="eyebrow">Step 3 of 3</p>
+      <h2>Hey <span id="lobby-name">Player</span> — pick one</h2>
+
+      <div class="pick-stack">
+        <button class="pick-card" id="btn-solo" type="button">
+          <span class="pick-kicker">Easiest</span>
+          <span class="pick-title">Practice</span>
+          <span class="pick-desc">You vs 1 computer rival. Tap squares. Slow pace.</span>
+        </button>
+
+        <button class="pick-card primary-card" id="btn-1v1" type="button">
+          <span class="pick-kicker">Friends</span>
+          <span class="pick-title">1v1 with a friend</span>
+          <span class="pick-desc">You get a code. Friend types it. Game starts when both are in.</span>
+        </button>
+      </div>
+
+      <div class="duel-panel hidden" id="duel-panel">
+        <div id="duel-host" class="hidden">
+          <p class="eyebrow">Your room code</p>
+          <p class="duel-code" id="duel-code">----</p>
+          <p class="copy">Tell your friend this code. Waiting for them…</p>
+          <p class="tiny" id="duel-wait">1 / 2 players</p>
+        </div>
+        <div id="duel-join">
+          <p class="eyebrow">Or join a friend</p>
+          <div class="join-row">
+            <input id="room-code" type="text" maxlength="4" placeholder="CODE" autocomplete="off" />
+            <button class="btn primary" id="btn-join" type="button">Join 1v1</button>
+          </div>
+        </div>
+        <button class="btn ghost" id="btn-duel-cancel" type="button">Back</button>
+      </div>
+
+      <p class="tiny" id="net-status">Connecting…</p>
+      <button class="btn ghost compact" id="btn-replay-how" type="button">Show how to play again</button>
+    </section>
+
+    <!-- PLAY -->
+    <section class="screen screen-play" id="screen-play" data-screen="play">
+      <div class="play-hud">
+        <div class="hud-left">
+          <span class="brand tiny-brand">CLAIMRUSH</span>
+          <span id="hud-name">Player</span>
+        </div>
+        <div class="hud-goal">
+          <span class="goal-label">FIRST TO</span>
+          <span id="hud-goal">180 ac</span>
+        </div>
+        <div class="hud-scores">
+          <span class="you-score">You <b id="score-you">0</b></span>
+          <span class="rival-score" id="score-them-label">Them <b id="score-rival">0</b></span>
+        </div>
+      </div>
+
+      <div class="howto-strip" id="howto-strip">
+        <strong>1 · Tap a square with a number &nbsp; 2 · Stack acres &nbsp; 3 · Hit 180 first</strong>
+        Yours = green tag · Rival = red tag · River = skip
+      </div>
+
+      <div class="board-wrap skinned">
+        <div class="game-board" id="game-board" aria-label="Valley map"></div>
+      </div>
+
+      <div class="play-bar">
+        <button class="btn ghost compact" id="btn-trivia" type="button">Trivia (optional)</button>
+        <div class="play-legend">
+          <span><i class="swatch skin hops"></i> Hops</span>
+          <span><i class="swatch skin town"></i> Town</span>
+          <span><i class="swatch you"></i> You</span>
+          <span><i class="swatch rival"></i> Rival</span>
+        </div>
+      </div>
+      <ul class="feed" id="play-feed"></ul>
+    </section>
+
+    <!-- TRIVIA -->
+    <div class="modal hidden" id="trivia-modal" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <p class="eyebrow">Bonus question</p>
+        <h2 id="trivia-q">Question</h2>
+        <div class="trivia-choices" id="trivia-choices"></div>
+        <p class="tiny" id="trivia-teach"></p>
+      </div>
+    </div>
+
+    <!-- RESULT -->
+    <section class="screen" id="screen-result" data-screen="result">
+      <div class="result-still" style="background-image:url('/skins/skin_hero.png')"></div>
+      <p class="eyebrow" id="result-eyebrow">Round over</p>
+      <h2 id="result-title">Nice.</h2>
+      <p class="copy" id="result-copy">You held the valley.</p>
+      <div class="stat-row result-stats">
+        <div class="stat">
+          <span class="stat-num" id="result-acres">0</span>
+          <span class="stat-label">your acres</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num" id="result-blocks">0</span>
+          <span class="stat-label">parcels</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num" id="result-trivia">0</span>
+          <span class="stat-label">trivia</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num" id="result-score">0</span>
+          <span class="stat-label">points</span>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn ghost" id="btn-home" type="button">Home</button>
+        <button class="btn primary pulse" id="btn-again" type="button">Play again</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="dock" id="dock">
+    <span class="dock-brand">CLAIMRUSH</span>
+    <span class="dock-step" id="dock-step">1 Tap · 2 Stack acres · 3 Hit 180</span>
+  </footer>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js?v=7"></script>
+</body>
+</html>

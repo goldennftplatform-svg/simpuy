@@ -1,0 +1,22 @@
+PUYALLUP SCENE SCALE AUDIT
+Scale: 1 Blender unit = 1 meter
+Origin: Pioneer Park center (0,0)
+
+Pioneer Park: (0,0) 110x110m
+Fairgrounds: (80,-1150) 950x750m (176 acres)
+Pioneer → Fairgrounds: 1153 m (0.72 mi)
+  Target 800–1200 m: PASS
+
+Downtown core: 520m E-W x 520m N-S (diameter ~520m)
+  Target walkable <1000m: PASS
+
+River centerline Y ~ 430m (north of downtown)
+SR-512 at X=550m, width=48m (east of core)
+South Hill rise: downtown Z=0.0m → south Z=129.5m (Δ 130m gentle)
+Framing hills: west ~132m, east ~124m
+Valley footprint: 4800m E-W x 3800m N-S
+Mount Rainier: ~14.4km SE, height 4300m
+
+FLYOVER: Flyover_Cam, 30s (frames 1-720 @ 24fps)
+Beats: high valley+Rainier → downtown/Pioneer → fairgrounds → river → South Hill
+Lighting: GoldenHour_Sun + Soft_Fill + Dusk_Rim; world mist haze; warm dusk sky

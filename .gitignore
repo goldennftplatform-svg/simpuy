@@ -1,0 +1,14 @@
+# Blender backups
+*.blend1
+
+# Node
+node_modules/
+
+# OS junk
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temp / test
+_smoke.js
+_p*.js
