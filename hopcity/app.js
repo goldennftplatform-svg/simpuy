@@ -2,9 +2,9 @@
   "use strict";
 
   const SAVE_KEY = "hopcity_save_v1";
-  const BOARD_N = 7;
+  const BOARD_N = 10;
   const TILES_N = BOARD_N * BOARD_N;
-  const CENTER = 24;
+  const CENTER = 45;
   const KING_WORTH = 32000;
   const RIVAL_KING = 34000;
   const BROKE_LINE = -400;
@@ -51,49 +51,49 @@
       id: "puyallup", name: "Puyallup Valley", st: "WA",
       blurb: "Meeker country. Deep river loam under Rainier's shadow - rich, wet, and famous.",
       rain: 0.85, soil: 0.95, yieldMul: 1.08, priceMul: 1.08, costMul: 1.25, fee: 0.06,
-      risk: "Mildew", creeks: 6, forest: 8, rocks: 3,
+      risk: "Mildew", creeks: 12, forest: 16, rocks: 6,
     },
     {
       id: "moxee", name: "Moxee Prairie", st: "WA",
       blurb: "Dryland gold east of Yakima. Nothing grows without water - everything grows with it.",
       rain: 0.25, soil: 0.85, yieldMul: 1.25, priceMul: 1.02, costMul: 0.9, fee: 0.05,
-      risk: "Aphids", creeks: 2, forest: 1, rocks: 5,
+      risk: "Aphids", creeks: 4, forest: 2, rocks: 10,
     },
     {
       id: "yakima", name: "Yakima Valley", st: "WA",
       blurb: "Three hundred days of sun. The future of Northwest hops, if you can irrigate fast enough.",
       rain: 0.3, soil: 0.78, yieldMul: 1.2, priceMul: 1.0, costMul: 0.95, fee: 0.05,
-      risk: "Drought", creeks: 3, forest: 1, rocks: 4,
+      risk: "Drought", creeks: 6, forest: 2, rocks: 8,
     },
     {
       id: "walla", name: "Walla Walla", st: "WA",
       blurb: "Cheap wind-blown dirt on the rail line. Hail rolls off the Blues some summers.",
       rain: 0.38, soil: 0.72, yieldMul: 1.02, priceMul: 0.97, costMul: 0.8, fee: 0.04,
-      risk: "Hail", creeks: 3, forest: 2, rocks: 4,
+      risk: "Hail", creeks: 6, forest: 4, rocks: 8,
     },
     {
       id: "boise", name: "Treasure Valley", st: "ID",
       blurb: "Boise-front land going cheap as the railroad pushes through. Shipping rates are kind here.",
       rain: 0.32, soil: 0.74, yieldMul: 1.0, priceMul: 0.98, costMul: 0.75, fee: 0.03,
-      risk: "Drought", creeks: 3, forest: 1, rocks: 4,
+      risk: "Drought", creeks: 6, forest: 2, rocks: 8,
     },
     {
       id: "magic", name: "Snake River Plain", st: "ID",
       blurb: "New canal country. Big water, big sky, big yields - when the river behaves.",
       rain: 0.28, soil: 0.8, yieldMul: 1.12, priceMul: 0.99, costMul: 0.85, fee: 0.05,
-      risk: "Flood", creeks: 4, forest: 1, rocks: 4,
+      risk: "Flood", creeks: 8, forest: 2, rocks: 8,
     },
     {
       id: "willamette", name: "Willamette Valley", st: "OR",
       blurb: "Oregon's old hop belt around Independence. Portland buyers pay extra for these bales.",
       rain: 0.9, soil: 0.88, yieldMul: 0.98, priceMul: 1.12, costMul: 1.15, fee: 0.06,
-      risk: "Mildew", creeks: 7, forest: 7, rocks: 2,
+      risk: "Mildew", creeks: 14, forest: 14, rocks: 4,
     },
     {
       id: "hood", name: "Hood River", st: "OR",
       blurb: "Small boutique yards above the Columbia gorge. Fewer pounds, fancier price tags.",
       rain: 0.65, soil: 0.76, yieldMul: 0.9, priceMul: 1.18, costMul: 1.1, fee: 0.05,
-      risk: "Wind", creeks: 5, forest: 6, rocks: 3,
+      risk: "Wind", creeks: 10, forest: 12, rocks: 6,
     },
   ];
 
