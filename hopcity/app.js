@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const SAVE_KEY = "hopcity_save_v1";
+  const SAVE_KEY = "hopcity_save_v2";
   const BOARD_N = 10;
   const TILES_N = BOARD_N * BOARD_N;
   const CENTER = 45;
