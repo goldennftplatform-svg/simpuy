@@ -68,7 +68,7 @@
     {
       id: "walla", name: "Walla Walla", st: "WA",
       blurb: "Cheap wind-blown dirt on the rail line. Hail rolls off the Blues some summers.",
-      rain: 0.38, soil: 0.72, yieldMul: 1.02, priceMul: 0.97, costMul: 0.8, fee: 0.04,
+      rain: 0.38, soil: 0.72, yieldMul: 1.08, priceMul: 0.97, costMul: 0.8, fee: 0.04,
       risk: "Hail", creeks: 6, forest: 4, rocks: 8,
     },
     {
@@ -92,7 +92,7 @@
     {
       id: "hood", name: "Hood River", st: "OR",
       blurb: "Small boutique yards above the Columbia gorge. Fewer pounds, fancier price tags.",
-      rain: 0.65, soil: 0.76, yieldMul: 0.9, priceMul: 1.18, costMul: 1.1, fee: 0.05,
+      rain: 0.65, soil: 0.76, yieldMul: 0.96, priceMul: 1.18, costMul: 1.1, fee: 0.05,
       risk: "Wind", creeks: 10, forest: 12, rocks: 6,
     },
   ];
@@ -408,7 +408,7 @@
     const b = state.tiles[i].b;
     const v = VARIETIES[b.v];
     const matured = state.year - b.plantedYear >= 1 ? 1 : 0.68;
-    return { v, matured, lb: 1400 * REG().yieldMul * v.yield * b.health * matured };
+    return { v, matured, lb: 1000 * REG().yieldMul * v.yield * b.health * matured };
   }
 
   const countType = (type) => state.tiles.filter((t) => t.b && t.b.type === type).length;
@@ -810,6 +810,9 @@
     }
   }
 
+  const WET_CAP = 2000;
+  const floodFactor = (marketable) => 1 - clamp(marketable / 40000, 0, 0.35);
+
   function projectHarvest() {
     const r = REG();
     const mkt = state.market;
@@ -827,7 +830,8 @@
     const avgVarPrice = varPriceSum / yards.length;
     const kilnCap = countType("kiln") * 7000;
     const processed = Math.min(picked, kilnCap);
-    const wetSold = picked - processed;
+    const undried = picked - processed;
+    const wetSold = Math.min(undried, WET_CAP);
     const laborCap = countType("cabin") * 6 + (state.summerOrder === "hands" ? 3 : 0);
     const covered = Math.min(yards.length, laborCap);
     const shortFrac = (yards.length - covered) / yards.length;
@@ -835,7 +839,8 @@
     const marketable = Math.max(0, processed - laborLoss);
     const spot =
       mkt.price * mkt.mod * r.priceMul * avgVarPrice *
-      (avgHealth * 0.5 + 0.5) * (1 + mkt.rep) * (1 - mkt.repPenalty) * (1 - (state.rivalPoach || 0));
+      (avgHealth * 0.5 + 0.5) * (1 + mkt.rep) * (1 - mkt.repPenalty) * (1 - (state.rivalPoach || 0)) *
+      floodFactor(marketable);
     let left = marketable;
     let contractRev = 0, contractLbs = 0;
     for (const c of state.contracts) {
@@ -875,7 +880,9 @@
 
     const kilnCap = countType("kiln") * 7000;
     const processed = Math.min(picked, kilnCap);
-    const wetSold = picked - processed;
+    const undried = picked - processed;
+    const wetSold = Math.min(undried, WET_CAP);
+    const spoiled = undried - wetSold;
 
     const laborCap = (countType("cabin") * 6 + (state.summerOrder === "hands" ? 3 : 0)) *
       (state.laborShortfall ? 0.55 : 1);
@@ -886,7 +893,8 @@
 
     const spot =
       mkt.price * mkt.mod * r.priceMul * avgVarPrice *
-      (avgHealth * 0.5 + 0.5) * (1 + mkt.rep) * (1 - mkt.repPenalty) * (1 - (state.rivalPoach || 0));
+      (avgHealth * 0.5 + 0.5) * (1 + mkt.rep) * (1 - mkt.repPenalty) * (1 - (state.rivalPoach || 0)) *
+      floodFactor(marketable);
 
     let left = marketable;
     let contractLbs = 0, contractRev = 0;
@@ -918,13 +926,14 @@
     if (net > 0) { coinBurst(null); sfx("coin"); } else { sfx("bad"); }
     state.rivalPoach = 0;
     state.summerOrder = null;
+    if (spoiled > 0) feed("Spoiled " + fmtLb(spoiled) + " with no kiln room - only " + fmtLb(WET_CAP) + " sold wet.", "bad");
 
     if (breached > 0) {
       mkt.repPenalty = 0.08;
       feed("Shorted contracts by " + fmtLb(breached) + " - buyers remember.", "bad");
     }
     feed("Harvested " + fmtLb(marketable) + " for " + fmt$(net) + ".", net > 0 ? "good" : "bad");
-    if (kilnCap < picked) feed("Lost " + fmtLb(picked - kilnCap) + " wet - not enough kiln room.", "bad");
+    if (clamp(marketable / 40000, 0, 1) > 0.15) feed("So many of your bales hit the market that buyers paid less - flood penalty.", "bad");
     if (covered < yards.length) feed("Left " + (yards.length - covered) + " acres unpicked - no cabin hands.", "bad");
 
     showModal({
@@ -932,6 +941,7 @@
       title: net >= 0 ? "Harvest in" : "Tough season",
       body:
         '<p class="copy"><b>' + fmtLb(marketable) + " dried & sold</b></p>" +
+        (spoiled > 0 ? '<p class="copy" style="color:var(--danger)">Spoiled: ' + fmtLb(spoiled) + " - build kilns!</p>" : "") +
         '<p class="copy">' + (contractLbs > 0 ? "Contract: " + fmtLb(contractLbs) + " @ $" + (contractRev / contractLbs).toFixed(2) + "/lb · " : "") +
         (spotLbs > 0 ? "Spot: " + fmtLb(spotLbs) + " @ $" + spot.toFixed(2) + "/lb · " : "") +
         "Hauling: -" + fmt$(hauling) + '</p>' +
@@ -973,8 +983,11 @@
         feed(rv.name + " tips his hat through gritted teeth - you are the richer grower now.", "gold");
         state.market.mod = Math.max(0.6, state.market.mod - 0.05);
       }
+      const early = worth < KING_WORTH * 0.4;
       const chased = worth > rv.worth * 1.5;
-      rv.worth = Math.round(rv.worth * (1 + (chased ? 0.1 + Math.random() * 0.1 : 0.07 + Math.random() * 0.09)));
+      let g = early ? 0.12 + Math.random() * 0.1 : 0.07 + Math.random() * 0.09;
+      if (chased) g = 0.1 + Math.random() * 0.1;
+      rv.worth = Math.round(rv.worth * (1 + g));
       if (!state.crownedRival && rv.worth >= RIVAL_KING) {
         state.crownedRival = rv.name;
         feed(rv.name + " was crowned Hop King! Pass " + fmt$(RIVAL_KING) + " to steal the crown.", "gold");
@@ -1032,7 +1045,7 @@
             btn.textContent = "Signed";
             sfx("coin");
             feed("Signed: " + fmtLb(o.lbs) + " @ $" + o.price.toFixed(2) + "/lb.", "gold");
-            if (!state.poachedThisYear && Math.random() < 0.35) {
+            if (+btn.dataset.offer === 1 && !state.poachedThisYear && Math.random() < 0.2) {
               state.poachedThisYear = true;
               state.rivalPoach = 0.08;
               const rv = state.rivals[Math.floor(Math.random() * state.rivals.length)];
