@@ -175,6 +175,110 @@
     localStorage.setItem(TUT_SEEN_KEY, "1");
   }
 
+  // ---- Juice: cash tween, float text, season banner, rank-up ----
+  let shownCash = 0;
+  let cashRaf = null;
+  function setCashAnimated(target) {
+    const el = $("#hud-cash");
+    if (Math.round(shownCash) === Math.round(target)) { el.textContent = fmt$(target); return; }
+    if (cashRaf) cancelAnimationFrame(cashRaf);
+    const from = shownCash, start = performance.now(), dur = 550;
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / dur);
+      const e = 1 - Math.pow(1 - t, 3);
+      shownCash = from + (target - from) * e;
+      el.textContent = fmt$(shownCash);
+      if (t < 1) cashRaf = requestAnimationFrame(step);
+      else { cashRaf = null; shownCash = target; el.textContent = fmt$(target); }
+    };
+    cashRaf = requestAnimationFrame(step);
+  }
+
+  function floatText(i, text, gain, big) {
+    const col = document.querySelector(".board-col");
+    if (!col) return;
+    const colRect = col.getBoundingClientRect();
+    let x = colRect.width / 2, y = colRect.height / 2;
+    if (i != null) {
+      const tile = col.querySelector('[data-i="' + i + '"]');
+      if (tile) {
+        const r = tile.getBoundingClientRect();
+        x = r.left - colRect.left + r.width / 2;
+        y = r.top - colRect.top + r.height / 2;
+      }
+    }
+    const el = document.createElement("div");
+    el.className = "float-txt " + (gain ? "gain" : "loss") + (big ? " big" : "");
+    el.textContent = text;
+    el.style.left = x + "px";
+    el.style.top = y + "px";
+    col.appendChild(el);
+    setTimeout(() => el.remove(), 1350);
+  }
+
+  function showBanner(main, sub) {
+    document.querySelectorAll(".season-banner").forEach((b) => b.remove());
+    const el = document.createElement("div");
+    el.className = "season-banner";
+    el.innerHTML = main + (sub ? '<span class="sb-year">' + sub + "</span>" : "");
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1650);
+  }
+
+  function coinBurst(i) {
+    const col = document.querySelector(".board-col");
+    if (!col) return;
+    const colRect = col.getBoundingClientRect();
+    let x = colRect.width / 2, y = colRect.height / 2;
+    if (i != null) {
+      const tile = col.querySelector('[data-i="' + i + '"]');
+      if (tile) {
+        const r = tile.getBoundingClientRect();
+        x = r.left - colRect.left + r.width / 2;
+        y = r.top - colRect.top + r.height / 2;
+      }
+    }
+    for (let k = 0; k < 9; k++) {
+      const c = document.createElement("span");
+      c.className = "coin";
+      const ang = Math.random() * Math.PI * 2;
+      const dist = 40 + Math.random() * 55;
+      c.style.setProperty("--dx", Math.cos(ang) * dist + "px");
+      c.style.setProperty("--dy", (Math.sin(ang) * dist - 45) + "px");
+      c.style.left = x + "px";
+      c.style.top = y + "px";
+      col.appendChild(c);
+      setTimeout(() => c.remove(), 1100);
+    }
+  }
+
+  function clearRangePreview() {
+    document.querySelectorAll(".tile.in-range").forEach((el) => el.classList.remove("in-range"));
+  }
+
+  function previewWellRange(i) {
+    clearRangePreview();
+    if (ui.tool !== "well" || !tileEligible(i)) return;
+    neighbors8(i).forEach((n) => {
+      const el = document.querySelector('#farm-board [data-i="' + n + '"]');
+      if (el) el.classList.add("in-range");
+    });
+  }
+
+  function showRankup(title) {
+    const box = document.getElementById("rankup");
+    document.getElementById("rankup-title").textContent = title;
+    box.classList.remove("hidden");
+  }
+
+  function renderGoalTicks() {
+    const t = $("#goal-ticks");
+    if (!t || t.childElementCount) return;
+    t.innerHTML = TITLES.filter(([m]) => m > 0 && m < KING_WORTH).map(([m, name]) =>
+      '<span class="goal-tick" style="left:' + Math.min(100, (m / KING_WORTH) * 100) + '%" title="' + name + " · " + fmt$(m) + '"></span>'
+    ).join("");
+  }
+
   const REG = () => REGIONS.find((r) => r.id === state.regionId);
 
   function genTerrain(region) {
@@ -358,6 +462,7 @@
           ui.trainedThisSummer = false;
           summerGrowth();
           feed("Summer " + state.year + ": the bines are climbing.");
+          showBanner("SUMMER", state.year);
           done();
         },
         (done) => maybeEvent("summer", done),
@@ -365,7 +470,7 @@
       );
     } else if (s === 1) {
       enqueue(
-        (done) => { state.seasonIdx = 2; done(); },
+        (done) => { state.seasonIdx = 2; showBanner("FALL", state.year + " · harvest"); done(); },
         (done) => maybeEvent("fall", done),
         harvest,
         checkEnd
@@ -375,6 +480,7 @@
         (done) => {
           state.seasonIdx = 3;
           resolveWinterNumbers();
+          showBanner("WINTER", state.year + " · close the books");
           done();
         },
         almanacQuiz,
@@ -446,6 +552,7 @@
             state.cash += 25;
             state.market.rep += 0.02;
             feed("Quiz won! The Clarion pays the purse: +$25.", "good");
+            floatText(null, "+$25", true);
           } else {
             feed("Quiz lost - the answer was '" + t.c[t.a] + "'.", "info");
           }
@@ -700,6 +807,8 @@
     state.laborShortfall = false;
     mkt.repPenalty = 0;
     mkt.rep *= 0.25;
+    floatText(null, (net >= 0 ? "+" : "-") + fmt$(Math.abs(net)), net >= 0, true);
+    if (net > 0) coinBurst(null);
 
     if (breached > 0) {
       mkt.repPenalty = 0.08;
@@ -798,6 +907,7 @@
     feed("Spring " + state.year + " - the valley wakes up.", "event");
     const lore = LORE_ALMANAC[Math.floor(Math.random() * LORE_ALMANAC.length)];
     feed("Almanac: " + lore, "event");
+    showBanner("SPRING", state.year + " · new year");
     done();
   }
 
@@ -879,6 +989,7 @@
     const title = titleFor(worth);
     if (title !== state.lastTitle) {
       feed("The territory knows your name now: " + title + ".", "gold");
+      if (title !== "Squatter" && title !== "Hop King") showRankup(title);
       state.lastTitle = title;
     }
     const badge = $("#hud-title");
@@ -886,7 +997,7 @@
     badge.classList.toggle("crown", state.won || title === "Hop King");
     const cashEl = $("#hud-cash");
     const cashBlock = cashEl.parentElement;
-    cashEl.textContent = fmt$(state.cash);
+    setCashAnimated(state.cash);
     cashEl.classList.toggle("bad", state.cash < 0);
     cashEl.classList.toggle("good", state.cash >= 0);
     if (state.cash !== lastCash) {
@@ -896,6 +1007,12 @@
       lastCash = state.cash;
     }
     $("#hud-worth").textContent = fmt$(worth);
+    const pct = clamp(worth / KING_WORTH, 0, 1) * 100;
+    const fill = $("#goal-fill");
+    fill.style.width = pct + "%";
+    fill.classList.toggle("full", worth >= KING_WORTH);
+    $("#goal-worth").textContent = fmt$(worth) + " / " + fmt$(KING_WORTH);
+    renderGoalTicks();
     const up = m.price >= m.lastPrice;
     $("#hud-market").innerHTML =
       "$" + m.price.toFixed(2) +
@@ -954,6 +1071,15 @@
       html += '<button type="button" data-i="' + i + '" class="' + cls + '">' + inner + "</button>";
     }
     boardEl.innerHTML = html;
+    if (ui.selectedTile != null) {
+      const st = state.tiles[ui.selectedTile];
+      if (st.b && st.b.type === "well") {
+        neighbors8(ui.selectedTile).forEach((n) => {
+          const el = boardEl.querySelector('[data-i="' + n + '"]');
+          if (el) el.classList.add("well-zone");
+        });
+      }
+    }
   }
 
   function renderToolsStatic() {
@@ -1150,6 +1276,7 @@
     state.cash -= cost;
     t.t = "grass";
     feed("Cleared a rough acre for " + fmt$(cost) + ".");
+    floatText(i, "-" + fmt$(cost), false);
     renderAll();
     save();
   }
@@ -1161,6 +1288,7 @@
     t.b = null;
     state.cash += refund;
     feed("Torn down. Salvage: " + fmt$(refund) + ".");
+    floatText(i, "+" + fmt$(refund), true);
     renderAll();
     save();
   }
@@ -1185,7 +1313,10 @@
       t.b = { type };
       feed(BUILD_NAME[type] + " raised (" + fmt$(cost) + ").");
     }
+    floatText(i, "-" + fmt$(cost), false);
     renderAll();
+    const el = document.querySelector('#farm-board [data-i="' + i + '"]');
+    if (el) { el.classList.add("built-pop"); setTimeout(() => el.classList.remove("built-pop"), 500); }
     save();
   }
 
@@ -1251,6 +1382,7 @@
     const name = ($("#ranch-name").value || "").trim() || "Meeker & Sons";
     state = newState(claimSel, name);
     lastCash = state.cash;
+    shownCash = state.cash;
     wipeSave();
     enterFarm();
     feed("Spring 1883. You ride into " + REG().name + " with $1,500 and a roll of wire.", "event");
@@ -1304,6 +1436,7 @@
       if (!s) return;
       state = s;
       lastCash = state.cash;
+      shownCash = state.cash;
       enterFarm();
       feed("Back to the " + REG().name + " ranch - " + SEASONS[state.seasonIdx] + " " + state.year + ".", "info");
       renderAll();
@@ -1331,6 +1464,15 @@
       onTileClick(+tile.dataset.i);
     });
 
+    $("#farm-board").addEventListener("mouseover", (e) => {
+      const tile = e.target.closest("[data-i]");
+      if (!tile) return;
+      previewWellRange(+tile.dataset.i);
+    });
+    $("#farm-board").addEventListener("mouseout", (e) => {
+      if (e.target.closest("[data-i]")) clearRangePreview();
+    });
+
     window.addEventListener("keydown", (e) => {
       if (e.code === "Space" && ui.screen === "farm" && !busy && modalQueue.length === 0) {
         e.preventDefault();
@@ -1341,6 +1483,9 @@
     refreshContinue();
 
     document.getElementById("btn-tut-ok").addEventListener("click", dismissTutorial);
+    document.getElementById("rankup-ok").addEventListener("click", () => {
+      document.getElementById("rankup").classList.add("hidden");
+    });
   }
 
   window.HOPCITY = {
