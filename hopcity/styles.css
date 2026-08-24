@@ -189,6 +189,21 @@ h2 { font-size: clamp(1.4rem, 5vw, 2rem); }
 }
 #hud-market .up { color: var(--wheat); }
 #hud-market .down { color: var(--danger); }
+.hud-big.proj { color: var(--wheat); font-size: 1rem; }
+
+.spark-wrap { margin: 4px 0 10px; }
+.spark { display: block; background: #171310; border: 1px solid var(--stroke); margin-top: 4px; }
+
+.dock-btn {
+  background: none;
+  border: 1px solid #3a3020;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: .72rem;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.dock-btn:hover { color: var(--cream); border-color: var(--wheat); }
 
 .farm-layout {
   display: grid;

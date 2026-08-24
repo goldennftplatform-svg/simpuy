@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=8" />
+  <link rel="stylesheet" href="styles.css?v=11" />
 </head>
 <body>
   <div class="sky sky-hop" aria-hidden="true"></div>
@@ -89,7 +89,7 @@
         </li>
         <li>
           <span class="step-n">2</span>
-          <div><h3>Summer — fight for the bines</h3><p>Yards lose vigor each summer. Train the bines (+10% vigor, once per summer) and keep every yard watered — thirsty yards wither fast. Survive aphids, mildew and hail.</p></div>
+          <div><h3>Summer — one crew order, choose well</h3><p>Train the bines (+10% vigor), preventative spray (disasters half as likely and half as cruel), or hire extra hands (+3 acres picked this fall). Watch the <b>Projected fall</b> number in the HUD — it updates as you build. Keep every yard watered.</p></div>
         </li>
         <li>
           <span class="step-n">3</span>
@@ -117,7 +117,7 @@
         <li><b>Water is everything in dry country.</b> One well serves 9 tiles — cluster yards around it like a donut.</li>
         <li><b>Match kilns to yards.</b> Each kiln handles ~5 mature yards. Overflow spoils wet at 18¢ on the dollar.</li>
         <li><b>Cabins pick 6 acres.</b> Unpicked acres lose 35% of their crop. Count cabins before you count yards.</li>
-        <li><b>Contracts = safety, spot = gamble.</b> Sign contracts when prices are high; ride spot when the market's hot.</li>
+        <li><b>Contracts = safety, spot = gamble.</b> Check the market sparkline in the broker's office — sign when the trend is falling, ride spot when it's climbing. Big contracts can make rivals poach your buyers.</li>
         <li><b>Reputation is money.</b> Win the quiz, help neighbors, impress Meeker — buyers pay more for a good name.</li>
         <li><b>First-year bines yield 68%.</b> Plant in spring anyway; they pay full from next year.</li>
       </ul>
@@ -221,11 +221,26 @@
           <span class="hud-label">Hop market</span>
           <span class="hud-big" id="hud-market">$0.58<span id="hud-market-arrow"></span></span>
         </div>
+        <div class="hud-block">
+          <span class="hud-label">Projected fall</span>
+          <span class="hud-big proj" id="hud-proj">~$0</span>
+        </div>
         <div class="hud-block hud-date">
           <span class="season-chip" id="hud-season">Spring</span>
           <span class="hud-big" id="hud-year">1883</span>
         </div>
       </header>
+
+      <div class="goal-wrap">
+        <div class="goal-top">
+          <span class="goal-title">Road to Hop King</span>
+          <span class="goal-worth" id="goal-worth">$0 / $32,000</span>
+        </div>
+        <div class="goal-track">
+          <div class="goal-fill" id="goal-fill"></div>
+          <div class="goal-ticks" id="goal-ticks"></div>
+        </div>
+      </div>
 
       <div class="howto-strip" id="howto-strip">Pick a tool · click tiles · then push time forward</div>
 
@@ -300,8 +315,8 @@
         <div class="tut-step">
           <span class="tut-num">4</span>
           <div class="tut-body">
-            <h3>Stay out of the red</h3>
-            <p>Keep cash above -$400 or the bank takes the farm. Hit <b>$32,000 net worth</b> to become Hop King. Press <b>Space</b> to advance fast.</p>
+            <h3>Watch the gold bar</h3>
+            <p>That's your road to <b>Hop King</b> — it fills as net worth climbs to <b>$32,000</b>. Keep cash above -$400 or the bank takes the farm. Press <b>Space</b> to advance fast.</p>
           </div>
         </div>
       </div>
@@ -319,11 +334,21 @@
     </div>
   </div>
 
+  <!-- RANK-UP CELEBRATION -->
+  <div class="rankup hidden" id="rankup" role="dialog" aria-modal="true">
+    <div class="rankup-card">
+      <p class="eyebrow">The territory knows your name</p>
+      <h1 id="rankup-title">Yard Boss</h1>
+      <button class="btn primary" id="rankup-ok" type="button">Carry on</button>
+    </div>
+  </div>
+
   <footer class="dock">
     <span class="dock-brand">HOPCITY</span>
     <span class="dock-step" id="dock-step">Spring 1883 · plant near water</span>
+    <button class="dock-btn" id="btn-sound" type="button">Sound: On</button>
   </footer>
 
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>

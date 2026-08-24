@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const SAVE_KEY = "hopcity_save_v3";
+  const SAVE_KEY = "hopcity_save_v4";
   const BOARD_N = 10;
   const TILES_N = BOARD_N * BOARD_N;
   const CENTER = 45;
@@ -140,6 +140,50 @@
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
+  // ---- Tiny synth SFX (no assets) ----
+  let muted = false;
+  try { muted = localStorage.getItem("hopcity_muted") === "1"; } catch (e) {}
+  let audioCtx = null;
+  function sfx(kind) {
+    if (muted) return;
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      const t = audioCtx.currentTime;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      if (kind === "coin") {
+        o.type = "triangle";
+        o.frequency.setValueAtTime(880, t);
+        o.frequency.setValueAtTime(1318, t + 0.08);
+        g.gain.setValueAtTime(0.07, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+        o.start(t); o.stop(t + 0.3);
+      } else if (kind === "build") {
+        o.type = "square";
+        o.frequency.setValueAtTime(170, t);
+        o.frequency.exponentialRampToValueAtTime(60, t + 0.12);
+        g.gain.setValueAtTime(0.08, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+        o.start(t); o.stop(t + 0.18);
+      } else if (kind === "bad") {
+        o.type = "sawtooth";
+        o.frequency.setValueAtTime(220, t);
+        o.frequency.exponentialRampToValueAtTime(105, t + 0.22);
+        g.gain.setValueAtTime(0.055, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+        o.start(t); o.stop(t + 0.27);
+      } else {
+        o.type = "sine";
+        o.frequency.setValueAtTime(660, t);
+        g.gain.setValueAtTime(0.04, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+        o.start(t); o.stop(t + 0.1);
+      }
+    } catch (e) {}
+  }
+
 
   function hashStr(s) {
     let h = 2166136261;
@@ -218,6 +262,7 @@
 
   function showBanner(main, sub) {
     document.querySelectorAll(".season-banner").forEach((b) => b.remove());
+    sfx("tick");
     const el = document.createElement("div");
     el.className = "season-banner";
     el.innerHTML = main + (sub ? '<span class="sb-year">' + sub + "</span>" : "");
@@ -269,6 +314,7 @@
     const box = document.getElementById("rankup");
     document.getElementById("rankup-title").textContent = title;
     box.classList.remove("hidden");
+    sfx("coin");
   }
 
   function renderGoalTicks() {
@@ -305,7 +351,7 @@
 
   function newState(regionId, name) {
     return {
-      v: 1,
+      v: 2,
       regionId,
       ranch: name || "Meeker & Sons",
       year: 1883,
@@ -314,9 +360,14 @@
       tiles: genTerrain(REGIONS.find((r) => r.id === regionId)),
       contracts: [],
       market: { price: 0.58, lastPrice: 0.58, mod: 1, rep: 0, repPenalty: 0 },
+      marketHist: [0.58],
       railPenalty: 0,
       laborShortfall: false,
-      rivals: RIVALS_SEED.map((x) => ({ ...x })),
+      summerOrder: null,
+      rivalPoach: 0,
+      wageWar: false,
+      poachedThisYear: false,
+      rivals: RIVALS_SEED.map((x) => ({ ...x, passed: false })),
       crownedRival: null,
       won: false,
       lost: false,
@@ -387,7 +438,7 @@
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return null;
       const s = JSON.parse(raw);
-      return s && s.v === 1 && !s.lost ? s : null;
+      return s && s.v === 2 && !s.lost ? s : null;
     } catch (e) { return null; }
   }
   function wipeSave() {
@@ -553,8 +604,15 @@
             state.market.rep += 0.02;
             feed("Quiz won! The Clarion pays the purse: +$25.", "good");
             floatText(null, "+$25", true);
+            sfx("coin");
+            if (Math.random() < 0.35 && !state.wageWar) {
+              const rv = state.rivals[Math.floor(Math.random() * state.rivals.length)];
+              state.wageWar = true;
+              feed(rv.name + " heard of your prize - expect wage demands this winter.", "bad");
+            }
           } else {
             feed("Quiz lost - the answer was '" + t.c[t.a] + "'.", "info");
+            sfx("bad");
           }
           done();
         },
@@ -563,7 +621,9 @@
   }
 
   function maybeEvent(phase, done) {
-    if (Math.random() > (phase === "summer" ? 0.55 : 0.5)) return done();
+    const spray = state.summerOrder === "spray";
+    const summerChance = spray ? 0.28 : 0.55;
+    if (Math.random() > (phase === "summer" ? summerChance : 0.5)) return done();
     const def = pickEvent(phase);
     feed(def.title, "event");
     if (def.choices) {
@@ -731,18 +791,64 @@
   }
 
   function damageAllYards(amount) {
+    if (state.summerOrder === "spray") amount *= 0.5;
     for (let i = 0; i < TILES_N; i++) {
       if (isYard(i)) state.tiles[i].b.health = clamp(state.tiles[i].b.health - amount, 0.15, 1);
     }
   }
 
   function loseKiln() {
+    if (state.summerOrder === "spray") {
+      feed("The spray crew beat the flames out - kiln scorched but standing.", "good");
+      return;
+    }
     for (let i = 0; i < TILES_N; i++) {
       if (state.tiles[i].b && state.tiles[i].b.type === "kiln") {
         state.tiles[i].b = null;
         return;
       }
     }
+  }
+
+  function projectHarvest() {
+    const r = REG();
+    const mkt = state.market;
+    const yards = [];
+    for (let i = 0; i < TILES_N; i++) if (isYard(i)) yards.push(i);
+    if (!yards.length) return 0;
+    let picked = 0, healthSum = 0, varPriceSum = 0;
+    yards.forEach((i) => {
+      const st = yardStats(i);
+      picked += st.lb;
+      healthSum += state.tiles[i].b.health;
+      varPriceSum += st.v.price;
+    });
+    const avgHealth = healthSum / yards.length;
+    const avgVarPrice = varPriceSum / yards.length;
+    const kilnCap = countType("kiln") * 7000;
+    const processed = Math.min(picked, kilnCap);
+    const wetSold = picked - processed;
+    const laborCap = countType("cabin") * 6 + (state.summerOrder === "hands" ? 3 : 0);
+    const covered = Math.min(yards.length, laborCap);
+    const shortFrac = (yards.length - covered) / yards.length;
+    const laborLoss = processed * shortFrac * 0.35;
+    const marketable = Math.max(0, processed - laborLoss);
+    const spot =
+      mkt.price * mkt.mod * r.priceMul * avgVarPrice *
+      (avgHealth * 0.5 + 0.5) * (1 + mkt.rep) * (1 - mkt.repPenalty) * (1 - (state.rivalPoach || 0));
+    let left = marketable;
+    let contractRev = 0, contractLbs = 0;
+    for (const c of state.contracts) {
+      const use = Math.min(c.lbs, left);
+      contractRev += use * c.price;
+      contractLbs += use;
+      left -= use;
+    }
+    const rev = contractRev + (marketable - contractLbs) * spot;
+    const wetRev = wetSold > 0 ? wetSold * spot * 0.18 : 0;
+    const gross = rev + wetRev;
+    const feeRate = r.fee + state.railPenalty;
+    return gross * (1 - feeRate);
   }
 
   function harvest(done) {
@@ -771,7 +877,8 @@
     const processed = Math.min(picked, kilnCap);
     const wetSold = picked - processed;
 
-    const laborCap = countType("cabin") * 6 * (state.laborShortfall ? 0.55 : 1);
+    const laborCap = (countType("cabin") * 6 + (state.summerOrder === "hands" ? 3 : 0)) *
+      (state.laborShortfall ? 0.55 : 1);
     const covered = Math.min(yards.length, laborCap);
     const shortFrac = (yards.length - covered) / yards.length;
     const laborLoss = processed * shortFrac * 0.35;
@@ -779,7 +886,7 @@
 
     const spot =
       mkt.price * mkt.mod * r.priceMul * avgVarPrice *
-      (avgHealth * 0.5 + 0.5) * (1 + mkt.rep) * (1 - mkt.repPenalty);
+      (avgHealth * 0.5 + 0.5) * (1 + mkt.rep) * (1 - mkt.repPenalty) * (1 - (state.rivalPoach || 0));
 
     let left = marketable;
     let contractLbs = 0, contractRev = 0;
@@ -808,7 +915,9 @@
     mkt.repPenalty = 0;
     mkt.rep *= 0.25;
     floatText(null, (net >= 0 ? "+" : "-") + fmt$(Math.abs(net)), net >= 0, true);
-    if (net > 0) coinBurst(null);
+    if (net > 0) { coinBurst(null); sfx("coin"); } else { sfx("bad"); }
+    state.rivalPoach = 0;
+    state.summerOrder = null;
 
     if (breached > 0) {
       mkt.repPenalty = 0.08;
@@ -836,7 +945,12 @@
     const r = REG();
     const yards = countType("yard");
     const others = countType("well") + countType("kiln") + countType("cabin");
-    const upkeep = Math.round(40 + yards * 8 * r.costMul + others * 18 * r.costMul);
+    let upkeep = Math.round(40 + yards * 8 * r.costMul + others * 18 * r.costMul);
+    if (state.wageWar) {
+      upkeep += 45;
+      feed("Wages bid up across the valley: +" + fmt$(45) + " upkeep.", "bad");
+      state.wageWar = false;
+    }
     state.cash -= upkeep;
     feed("Winter upkeep: wages, twine, tarps - " + fmt$(upkeep) + ".", "bad");
 
@@ -849,9 +963,18 @@
       "Winter market wire: hops at $" + m.price.toFixed(2) + "/lb and " + (up ? "climbing." : "sliding."),
       up ? "good" : "bad"
     );
+    state.marketHist.push(m.price);
+    if (state.marketHist.length > 12) state.marketHist.shift();
 
+    const worth = netWorth();
     state.rivals.forEach((rv) => {
-      rv.worth = Math.round(rv.worth * (1.07 + Math.random() * 0.09));
+      if (!rv.passed && worth > rv.worth && rv.worth > 0) {
+        rv.passed = true;
+        feed(rv.name + " tips his hat through gritted teeth - you are the richer grower now.", "gold");
+        state.market.mod = Math.max(0.6, state.market.mod - 0.05);
+      }
+      const chased = worth > rv.worth * 1.5;
+      rv.worth = Math.round(rv.worth * (1 + (chased ? 0.1 + Math.random() * 0.1 : 0.07 + Math.random() * 0.09)));
       if (!state.crownedRival && rv.worth >= RIVAL_KING) {
         state.crownedRival = rv.name;
         feed(rv.name + " was crowned Hop King! Pass " + fmt$(RIVAL_KING) + " to steal the crown.", "gold");
@@ -867,8 +990,24 @@
       adj,
     });
     const offers = [mkOffer(0.35, -0.06), mkOffer(0.55, 0.12)];
+    const hist = (state.marketHist || []).slice(-8);
+    let spark = "";
+    if (hist.length >= 2) {
+      const w = 200, h = 36, pad = 3;
+      const min = Math.min(...hist), max = Math.max(...hist);
+      const pts = hist.map((p, i) => {
+        const x = pad + i * ((w - 2 * pad) / (hist.length - 1));
+        const y = h - pad - ((p - min) / ((max - min) || 1)) * (h - 2 * pad);
+        return x.toFixed(1) + "," + y.toFixed(1);
+      }).join(" ");
+      spark =
+        '<div class="spark-wrap"><span class="hud-label">Market, past years ($/lb)</span>' +
+        '<svg class="spark" width="' + w + '" height="' + h + '"><polyline points="' + pts +
+        '" fill="none" stroke="#d4a843" stroke-width="2"/></svg></div>';
+    }
     const body =
       '<p class="copy dim">Lock a price for next year — or gamble on the spot market.</p>' +
+      spark +
       offers
         .map((o, idx) =>
           '<div class="offer"><div class="offer-head"><span>' + fmtLb(o.lbs) + "</span>" +
@@ -891,7 +1030,15 @@
             state.contracts.push({ lbs: o.lbs, price: o.price });
             btn.disabled = true;
             btn.textContent = "Signed";
+            sfx("coin");
             feed("Signed: " + fmtLb(o.lbs) + " @ $" + o.price.toFixed(2) + "/lb.", "gold");
+            if (!state.poachedThisYear && Math.random() < 0.35) {
+              state.poachedThisYear = true;
+              state.rivalPoach = 0.08;
+              const rv = state.rivals[Math.floor(Math.random() * state.rivals.length)];
+              feed(rv.name + " heard about that contract - he wooed one of your buyers. Spot suffers 8% this fall.", "bad");
+              sfx("bad");
+            }
           });
         });
       },
@@ -902,7 +1049,8 @@
     state.year += 1;
     state.seasonIdx = 0;
     state.railPenalty = 0;
-    ui.trainedThisSummer = false;
+    state.summerOrder = null;
+    state.poachedThisYear = false;
     ui.selectedTile = null;
     feed("Spring " + state.year + " - the valley wakes up.", "event");
     const lore = LORE_ALMANAC[Math.floor(Math.random() * LORE_ALMANAC.length)];
@@ -1013,6 +1161,7 @@
     fill.classList.toggle("full", worth >= KING_WORTH);
     $("#goal-worth").textContent = fmt$(worth) + " / " + fmt$(KING_WORTH);
     renderGoalTicks();
+    $("#hud-proj").textContent = "~" + fmt$(Math.max(0, projectHarvest()));
     const up = m.price >= m.lastPrice;
     $("#hud-market").innerHTML =
       "$" + m.price.toFixed(2) +
@@ -1137,14 +1286,28 @@
       return;
     }
     const yards = countType("yard");
+    const order = state.summerOrder;
     const trainCost = yards * 8;
+    const sprayCost = Math.round(140 * REG().costMul);
+    const handsCost = Math.round(110 * REG().costMul);
     const thirsty = thirstyCount();
     const haulCost = thirsty * 6;
+    const orderBtn = (id, label, cost, sub, enabled) =>
+      '<button type="button" class="action-btn" id="' + id + '"' +
+      (enabled ? "" : " disabled") + ">" +
+      label + " - " + fmt$(cost) +
+      '<span class="action-sub">' + sub + "</span></button>";
     let html =
-      '<button type="button" class="action-btn" id="act-train"' +
-      (yards && !ui.trainedThisSummer && state.cash >= trainCost ? "" : " disabled") + ">" +
-      "Train the bines - " + fmt$(trainCost) +
-      '<span class="action-sub">+10% vigor on every yard, once this summer</span></button>';
+      '<p class="copy dim" style="font-size:.76rem;margin:0 0 7px;">One crew order this summer - choose well.</p>' +
+      orderBtn("act-train", "Train the bines", trainCost,
+        "+10% vigor on every yard" + (order === "train" ? " - ORDERED" : ""),
+        !order && state.cash >= trainCost) +
+      orderBtn("act-spray", "Preventative spray", sprayCost,
+        "Summer disasters half as likely, half as cruel" + (order === "spray" ? " - ORDERED" : ""),
+        !order && state.cash >= sprayCost) +
+      orderBtn("act-hands", "Hire extra hands", handsCost,
+        "+3 acres picked at harvest" + (order === "hands" ? " - ORDERED" : ""),
+        !order && state.cash >= handsCost);
     if (thirsty > 0) {
       html +=
         '<button type="button" class="action-btn" id="act-haul"' +
@@ -1154,19 +1317,26 @@
     }
     body.innerHTML = html;
 
-    const tr = document.getElementById("act-train");
-    if (tr) tr.addEventListener("click", () => {
-      const cost = countType("yard") * 8;
-      if (ui.trainedThisSummer || state.cash < cost) return;
-      state.cash -= cost;
-      ui.trainedThisSummer = true;
+    const wireOrder = (id, key, cost, msg, effect) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.addEventListener("click", () => {
+        if (state.summerOrder || state.cash < cost) return;
+        state.summerOrder = key;
+        state.cash -= cost;
+        if (effect) effect();
+        feed(msg, "good");
+        sfx("build");
+        renderAll();
+        save();
+      });
+    };
+    wireOrder("act-train", "train", countType("yard") * 8, "Hands in the yard: every bine trained and tied.", () => {
       for (let i = 0; i < TILES_N; i++) {
         if (isYard(i)) state.tiles[i].b.health = clamp(state.tiles[i].b.health + 0.1, 0.15, 1);
       }
-      feed("Hands in the yard: every bine trained and tied.", "good");
-      renderAll();
-      save();
     });
+    wireOrder("act-spray", "spray", Math.round(140 * REG().costMul), "Copper and sulfur dusted on every row - insurance against the season.");
+    wireOrder("act-hands", "hands", Math.round(110 * REG().costMul), "Extra pickers hired for the fall run.");
     const hw = document.getElementById("act-haul");
     if (hw) hw.addEventListener("click", () => {
       const n = thirstyCount();
@@ -1177,6 +1347,7 @@
         if (isYard(i) && !isIrrigated(i)) state.tiles[i].b.wateredManual = true;
       }
       feed("Bucket line formed - water hauled to " + n + " yard" + (n > 1 ? "s" : "") + ".", "good");
+      sfx("build");
       renderAll();
       save();
     });
@@ -1276,6 +1447,7 @@
     state.cash -= cost;
     t.t = "grass";
     feed("Cleared a rough acre for " + fmt$(cost) + ".");
+    sfx("build");
     floatText(i, "-" + fmt$(cost), false);
     renderAll();
     save();
@@ -1288,6 +1460,7 @@
     t.b = null;
     state.cash += refund;
     feed("Torn down. Salvage: " + fmt$(refund) + ".");
+    sfx("build");
     floatText(i, "+" + fmt$(refund), true);
     renderAll();
     save();
@@ -1314,6 +1487,7 @@
       feed(BUILD_NAME[type] + " raised (" + fmt$(cost) + ").");
     }
     floatText(i, "-" + fmt$(cost), false);
+    sfx("build");
     renderAll();
     const el = document.querySelector('#farm-board [data-i="' + i + '"]');
     if (el) { el.classList.add("built-pop"); setTimeout(() => el.classList.remove("built-pop"), 500); }
@@ -1486,6 +1660,16 @@
     document.getElementById("rankup-ok").addEventListener("click", () => {
       document.getElementById("rankup").classList.add("hidden");
     });
+
+    const sndBtn = document.getElementById("btn-sound");
+    const syncSnd = () => { sndBtn.textContent = muted ? "Sound: Off" : "Sound: On"; };
+    syncSnd();
+    sndBtn.addEventListener("click", () => {
+      muted = !muted;
+      try { localStorage.setItem("hopcity_muted", muted ? "1" : "0"); } catch (e) {}
+      syncSnd();
+      if (!muted) sfx("tick");
+    });
   }
 
   window.HOPCITY = {
@@ -1495,7 +1679,7 @@
     get mqLen() { return modalQueue.length; },
     get sqLen() { return stepQueue.length; },
     ui,
-    fns: { newState, enterFarm, advance, tryBuild, tryClear, tryDemolish, netWorth, countType },
+    fns: { newState, enterFarm, advance, tryBuild, tryClear, tryDemolish, netWorth, countType, projectHarvest },
   };
 
   wireUI();
