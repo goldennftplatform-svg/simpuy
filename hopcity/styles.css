@@ -511,6 +511,20 @@ h2 { font-size: clamp(1.4rem, 5vw, 2rem); }
 .dock-brand { font-family: var(--font-display); color: var(--wheat); font-size: .85rem; }
 .dock-step { color: var(--muted); font-size: .78rem; }
 
+/* TUTORIAL */
+.tutorial-card { max-width: 520px; }
+.tut-steps { display: grid; gap: 10px; margin: 14px 0 18px; }
+.tut-step { display: flex; gap: 12px; align-items: flex-start; }
+.tut-num {
+  flex: none; width: 32px; height: 32px;
+  display: grid; place-items: center;
+  background: var(--wheat); color: var(--ink);
+  border: 2px solid var(--stroke);
+  font-family: var(--font-display); font-size: .9rem;
+}
+.tut-body h3 { margin: 0 0 3px; font-family: var(--font-display); font-size: .9rem; color: var(--cream); }
+.tut-body p { margin: 0; font-size: .82rem; color: var(--muted); line-height: 1.35; }
+
 .hidden { display: none !important; }
 
 .howto-strip {

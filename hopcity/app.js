@@ -133,6 +133,16 @@
   let busy = false;
   let lastCash = 0;
 
+  const TUT_SEEN_KEY = "hopcity_tutorial_seen";
+  function showTutorial() {
+    if (localStorage.getItem(TUT_SEEN_KEY)) return;
+    document.getElementById("tutorial").classList.remove("hidden");
+  }
+  function dismissTutorial() {
+    document.getElementById("tutorial").classList.add("hidden");
+    localStorage.setItem(TUT_SEEN_KEY, "1");
+  }
+
   const REG = () => REGIONS.find((r) => r.id === state.regionId);
 
   function genTerrain(region) {
@@ -1147,6 +1157,7 @@
     }
     renderAll();
     save();
+    setTimeout(showTutorial, 300);
   }
 
   function netWorthOf(s) {
@@ -1221,6 +1232,8 @@
     });
 
     refreshContinue();
+
+    document.getElementById("btn-tut-ok").addEventListener("click", dismissTutorial);
   }
 
   window.HOPCITY = {
