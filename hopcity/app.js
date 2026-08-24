@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const SAVE_KEY = "hopcity_save_v2";
+  const SAVE_KEY = "hopcity_save_v3";
   const BOARD_N = 10;
   const TILES_N = BOARD_N * BOARD_N;
   const CENTER = 45;
@@ -131,6 +131,7 @@
   let modalQueue = [];
   let stepQueue = [];
   let busy = false;
+  let lastCash = 0;
 
   const REG = () => REGIONS.find((r) => r.id === state.regionId);
 
@@ -380,25 +381,22 @@
     if (Math.random() > (phase === "summer" ? 0.55 : 0.5)) return done();
     const def = pickEvent(phase);
     feed(def.title, "event");
-    let choices;
     if (def.choices) {
-      choices = def.choices.map((c) => ({
+      const choices = def.choices.map((c) => ({
         label: c.label, sub: c.sub, kind: c.kind,
         fn: () => { c.fn(); if (c.result) feed(c.result, c.feedKind || "info"); done(); },
       }));
+      showModal({
+        eyebrow: cap(phase) + " " + state.year,
+        title: def.title,
+        body: '<p class="copy">' + def.copy + "</p>",
+        choices,
+      });
     } else {
       def.fn();
       if (def.outcome) feed(def.outcome, "event");
-      choices = [{ label: "So it goes", fn: () => done() }];
+      done();
     }
-    showModal({
-      eyebrow: cap(phase) + " " + state.year,
-      title: def.title,
-      body:
-        '<p class="copy">' + def.copy + "</p>" +
-        (def.outcome ? '<p class="copy"><b>' + def.outcome + "</b></p>" : ""),
-      choices,
-    });
   }
 
   function aphidEvent() {
@@ -592,31 +590,23 @@
     mkt.repPenalty = 0;
     mkt.rep *= 0.25;
 
-    const rows = [["Picked fresh from the vines", fmtLb(picked)]];
-    if (wetSold > 0) rows.push(["Spoiled wet - no kiln room", "-" + fmtLb(wetSold)]);
-    if (laborLoss > 0.5) rows.push(["Left on the vine - hands short", "-" + fmtLb(laborLoss)]);
-    rows.push(["Dried & baled", fmtLb(marketable)]);
-    if (contractLbs > 0) rows.push(["Contract sales @ $" + (contractRev / contractLbs).toFixed(2) + "/lb", fmt$(contractRev)]);
-    if (spotLbs > 0) rows.push(["Spot market @ $" + spot.toFixed(2) + "/lb", fmt$(spotRev)]);
-    if (wetRev > 0) rows.push(["Wet-fire sales (cheap)", fmt$(wetRev)]);
-    rows.push(["Rail & hauling (" + Math.round(feeRate * 100) + "%)", "-" + fmt$(hauling)]);
-
     if (breached > 0) {
       mkt.repPenalty = 0.08;
       feed("Shorted contracts by " + fmtLb(breached) + " - buyers remember.", "bad");
     }
-    feed("Fall " + state.year + ": sold " + fmtLb(marketable + wetSold) + " for " + fmt$(gross) + ".", gross > 0 ? "good" : "info");
+    feed("Harvested " + fmtLb(marketable) + " for " + fmt$(net) + ".", net > 0 ? "good" : "bad");
+    if (kilnCap < picked) feed("Lost " + fmtLb(picked - kilnCap) + " wet - not enough kiln room.", "bad");
+    if (covered < yards.length) feed("Left " + (yards.length - covered) + " acres unpicked - no cabin hands.", "bad");
 
     showModal({
-      eyebrow: "Harvest report - Fall " + state.year,
-      title: "Baling day",
+      eyebrow: "Fall " + state.year,
+      title: net >= 0 ? "Harvest in" : "Tough season",
       body:
-        '<table class="report-table">' +
-        rows.map((row) => '<tr><td>' + row[0] + "</td><td>" + row[1] + "</td></tr>").join("") +
-        '<tr class="total"><td>Banked</td><td>' + (net >= 0 ? "+" : "") + fmt$(net) + "</td></tr></table>" +
-        (breached > 0
-          ? '<p class="tiny">Shorted ' + fmtLb(breached) + " of contracted hops. Spot price takes an 8% hit next fall.</p>"
-          : ""),
+        '<p class="copy"><b>' + fmtLb(marketable) + " dried & sold</b></p>" +
+        '<p class="copy">' + (contractLbs > 0 ? "Contract: " + fmtLb(contractLbs) + " @ $" + (contractRev / contractLbs).toFixed(2) + "/lb · " : "") +
+        (spotLbs > 0 ? "Spot: " + fmtLb(spotLbs) + " @ $" + spot.toFixed(2) + "/lb · " : "") +
+        "Hauling: -" + fmt$(hauling) + '</p>' +
+        '<p class="copy" style="font-size:1.15em;margin-top:8px;"><b>Net: ' + (net >= 0 ? "+" : "") + fmt$(net) + "</b></p>",
       choices: [{ label: "Bank it", kind: "primary", fn: () => done() }],
     });
   }
@@ -658,21 +648,21 @@
     });
     const offers = [mkOffer(0.35, -0.06), mkOffer(0.55, 0.12)];
     const body =
-      '<p class="copy">Brokers are lining up contracts for next year\'s crop. Sign now to lock a price - or gamble on the spot market come fall.</p>' +
+      '<p class="copy dim">Lock a price for next year — or gamble on the spot market.</p>' +
       offers
         .map((o, idx) =>
           '<div class="offer"><div class="offer-head"><span>' + fmtLb(o.lbs) + "</span>" +
           '<span class="offer-price">$' + o.price.toFixed(2) + "/lb</span></div>" +
-          '<div class="offer-sub">Delivered next fall · about ' + (o.adj >= 0 ? "above" : "below") + " today's market</div>" +
-          '<button class="btn primary compact" data-offer="' + idx + '" type="button">Sign contract</button></div>'
+          '<div class="offer-sub">' + (o.adj >= 0 ? "+" : "") + Math.round(o.adj * 100) + '% vs today</div>' +
+          '<button class="btn primary compact" data-offer="' + idx + '" type="button">Sign</button></div>'
         )
         .join("");
 
     showModal({
       eyebrow: "Winter " + state.year,
-      title: "The broker's office",
+      title: "Contract offers",
       body,
-      choices: [{ label: "Ride on into spring", kind: "primary", fn: () => done() }],
+      choices: [{ label: "Into spring", kind: "primary", fn: () => done() }],
       onOpen: (box) => {
         box.querySelectorAll("[data-offer]").forEach((btn) => {
           btn.addEventListener("click", () => {
@@ -681,7 +671,7 @@
             state.contracts.push({ lbs: o.lbs, price: o.price });
             btn.disabled = true;
             btn.textContent = "Signed";
-            feed("Contract signed: " + fmtLb(o.lbs) + " @ $" + o.price.toFixed(2) + "/lb.", "gold");
+            feed("Signed: " + fmtLb(o.lbs) + " @ $" + o.price.toFixed(2) + "/lb.", "gold");
           });
         });
       },
@@ -781,15 +771,25 @@
     badge.textContent = title;
     badge.classList.toggle("crown", state.won || title === "Hop King");
     const cashEl = $("#hud-cash");
+    const cashBlock = cashEl.parentElement;
     cashEl.textContent = fmt$(state.cash);
     cashEl.classList.toggle("bad", state.cash < 0);
     cashEl.classList.toggle("good", state.cash >= 0);
+    if (state.cash !== lastCash) {
+      cashBlock.classList.remove("flash-good", "flash-bad");
+      void cashBlock.offsetWidth;
+      cashBlock.classList.add(state.cash > lastCash ? "flash-good" : "flash-bad");
+      lastCash = state.cash;
+    }
     $("#hud-worth").textContent = fmt$(worth);
     const up = m.price >= m.lastPrice;
     $("#hud-market").innerHTML =
       "$" + m.price.toFixed(2) +
       '<span class="' + (up ? "up" : "down") + '">' + (up ? " +" : " -") + "</span>";
     $("#hud-season").textContent = SEASONS[state.seasonIdx];
+    const seasonChip = $("#hud-season");
+    const seasonColors = ["#7ab87a", "#d4a843", "#b85c38", "#6b9eb8"];
+    seasonChip.style.background = seasonColors[state.seasonIdx];
     $("#hud-year").textContent = state.year;
     $("#season-dots").innerHTML = SEASONS.map((s, idx) => {
       let c = "s-dot";
@@ -816,6 +816,8 @@
   function renderBoard() {
     let html = "";
     const dryRegion = REG().rain < 0.6;
+    const boardEl = $("#farm-board");
+    if (boardEl.parentElement) boardEl.parentElement.setAttribute("data-season", state.seasonIdx);
     for (let i = 0; i < TILES_N; i++) {
       const t = state.tiles[i];
       let cls = "tile t-" + t.t + (t.alt ? " alt" : "");
@@ -829,6 +831,7 @@
       if (isYard(i)) {
         const h = t.b.health;
         cls += h >= 0.7 ? " h-ok" : h >= 0.45 ? " h-mid" : " h-low";
+        if (state.year - t.b.plantedYear < 1) cls += " young";
         if (dryRegion) cls += isIrrigated(i) ? " irrigated" : " thirsty";
         inner += '<span class="vtag">' + t.b.v + "</span>";
       }
@@ -836,7 +839,7 @@
       if (tileEligible(i)) cls += " can-build";
       html += '<button type="button" data-i="' + i + '" class="' + cls + '">' + inner + "</button>";
     }
-    $("#farm-board").innerHTML = html;
+    boardEl.innerHTML = html;
   }
 
   function renderToolsStatic() {
@@ -1133,6 +1136,7 @@
     if (!claimSel) return;
     const name = ($("#ranch-name").value || "").trim() || "Meeker & Sons";
     state = newState(claimSel, name);
+    lastCash = state.cash;
     wipeSave();
     enterFarm();
     feed("Spring 1883. You ride into " + REG().name + " with $1,500 and a roll of wire.", "event");
@@ -1184,6 +1188,7 @@
       const s = loadSave();
       if (!s) return;
       state = s;
+      lastCash = state.cash;
       enterFarm();
       feed("Back to the " + REG().name + " ranch - " + SEASONS[state.seasonIdx] + " " + state.year + ".", "info");
       renderAll();

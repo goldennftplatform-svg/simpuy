@@ -218,6 +218,54 @@ h2 { font-size: clamp(1.4rem, 5vw, 2rem); }
   gap: 2px;
 }
 
+/* Seasonal tinting — one filter per season on the whole board */
+.board-frame[data-season="1"] .tile.t-grass { background: linear-gradient(135deg, #5a8a35 0%, #4a7a2a 50%, #5a8a35 100%); }
+.board-frame[data-season="1"] .tile.t-grass.alt { background: linear-gradient(135deg, #4a7a2a 0%, #3d6d24 50%, #4a7a2a 100%); }
+.board-frame[data-season="1"] .tile.b-yard { background: linear-gradient(135deg, #6a9a35 0%, #5a8830 50%, #6a9a35 100%); }
+
+.board-frame[data-season="2"] .tile.t-grass { background: linear-gradient(135deg, #8a8a35 0%, #7a7a2a 50%, #8a8a35 100%); }
+.board-frame[data-season="2"] .tile.t-grass.alt { background: linear-gradient(135deg, #7a7a2a 0%, #6d6d24 50%, #7a7a2a 100%); }
+.board-frame[data-season="2"] .tile.t-creek { background: linear-gradient(180deg, #1a5878 0%, #144868 50%, #1a5878 100%); }
+.board-frame[data-season="2"] .tile.b-yard { background: linear-gradient(135deg, #9a8a30 0%, #8a7a25 50%, #9a8a30 100%); }
+.board-frame[data-season="2"] .tile.b-yard::before {
+  background: repeating-linear-gradient(45deg, transparent 0px, transparent 2px, rgba(220,180,60,.2) 2px, rgba(220,180,60,.2) 4px);
+}
+
+.board-frame[data-season="3"] .tile.t-grass { background: linear-gradient(135deg, #6a6858 0%, #5a5a4a 50%, #6a6858 100%); }
+.board-frame[data-season="3"] .tile.t-grass.alt { background: linear-gradient(135deg, #5a5a4a 0%, #4d4d3d 50%, #5a5a4a 100%); }
+.board-frame[data-season="3"] .tile.t-creek { background: linear-gradient(180deg, #2a4a68 0%, #1e3a58 50%, #2a4a68 100%); }
+.board-frame[data-season="3"] .tile.t-forest { background: linear-gradient(180deg, #3a3a32 0%, #2e2e28 100%); }
+.board-frame[data-season="3"] .tile.b-yard { background: linear-gradient(135deg, #7a7848 0%, #6a6a3a 50%, #7a7848 100%); }
+
+/* Yard maturity — first-year bines look thinner */
+.tile.b-yard.young {
+  background: linear-gradient(135deg, #4a7a28 0%, #3d6d22 50%, #4a7a28 100%) !important;
+  opacity: .82;
+}
+.tile.b-yard.young::before {
+  background: repeating-linear-gradient(45deg, transparent 0px, transparent 3px, rgba(180,220,80,.08) 3px, rgba(180,220,80,.08) 5px) !important;
+}
+
+/* Cash flash */
+@keyframes flash-good { 0% { box-shadow: inset 0 0 12px rgba(212,168,67,.5); } 100% { box-shadow: none; } }
+@keyframes flash-bad { 0% { box-shadow: inset 0 0 12px rgba(200,60,60,.5); } 100% { box-shadow: none; } }
+.hud-block.flash-good { animation: flash-good .8s ease-out; }
+.hud-block.flash-bad { animation: flash-bad .8s ease-out; }
+
+/* Season transition on board frame */
+.board-frame { transition: background .4s ease; }
+
+/* Board season label */
+.board-season {
+  font-family: var(--font-display);
+  font-size: .72rem;
+  color: var(--muted);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
 .tile {
   aspect-ratio: 1;
   position: relative;
