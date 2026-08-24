@@ -1310,6 +1310,9 @@
     });
 
     $("#btn-how").addEventListener("click", () => showScreen("how"));
+    $("#btn-faq").addEventListener("click", () => showScreen("faq"));
+    $("#btn-how-faq").addEventListener("click", () => showScreen("faq"));
+    $("#btn-faq-back").addEventListener("click", () => { refreshContinue(); showScreen("title"); });
     $("#btn-back-title").addEventListener("click", () => { refreshContinue(); showScreen("title"); });
     $("#btn-claim-back").addEventListener("click", () => { refreshContinue(); showScreen("title"); });
     $("#btn-start").addEventListener("click", startGame);

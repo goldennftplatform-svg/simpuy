@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=7" />
+  <link rel="stylesheet" href="styles.css?v=8" />
 </head>
 <body>
   <div class="sky sky-hop" aria-hidden="true"></div>
@@ -73,6 +73,7 @@
         <button class="btn primary pulse" id="btn-new" type="button">Stake a new claim</button>
         <button class="btn ghost hidden" id="btn-continue" type="button">Continue your empire</button>
         <button class="btn ghost" id="btn-how" type="button">How to play</button>
+        <button class="btn ghost" id="btn-faq" type="button">FAQ</button>
       </div>
       <p class="tiny">Saves automatically in this browser. No account, no server, no mercy.</p>
     </section>
@@ -84,24 +85,106 @@
       <ol class="steps-big">
         <li>
           <span class="step-n">1</span>
-          <div><h3>Spring — claim &amp; plant</h3><p>Pick a region (real hop country: WA · ID · OR), buy tiles, plant hop yards near water.</p></div>
+          <div><h3>Spring — claim &amp; plant</h3><p>Pick a region (real hop country: WA · ID · OR). Plant hop yards on open dirt. In dry country, plant next to creeks or plan on wells. Everything you plant pays this fall.</p></div>
         </li>
         <li>
           <span class="step-n">2</span>
-          <div><h3>Summer — fight for the bines</h3><p>Irrigate dry dirt, train the vines, survive aphids, mildew and hail.</p></div>
+          <div><h3>Summer — fight for the bines</h3><p>Yards lose vigor each summer. Train the bines (+10% vigor, once per summer) and keep every yard watered — thirsty yards wither fast. Survive aphids, mildew and hail.</p></div>
         </li>
         <li>
           <span class="step-n">3</span>
-          <div><h3>Fall — pick, dry, sell</h3><p>Kilns dry the crop, cabins bring the hands. Contracts lock prices, spot market gambles.</p></div>
+          <div><h3>Fall — pick, dry, sell</h3><p>Harvest is automatic. Kilns dry your crop (7,000 lb each — excess spoils wet for pennies). Cabins bring pickers (6 acres each — short-handed means hops left on the vine). Contracts pay first, the rest sells at spot price.</p></div>
         </li>
         <li>
           <span class="step-n">4</span>
-          <div><h3>Winter — count &amp; scheme</h3><p>Pay upkeep, read next year's contract offers, watch rival barons creep toward the crown.</p></div>
+          <div><h3>Winter — count &amp; scheme</h3><p>Pay upkeep, answer the Clarion's almanac quiz ($25 purse), sign next year's contracts at fixed prices — or gamble on the spot market.</p></div>
         </li>
       </ol>
-      <p class="copy">Hit <b>$32,000 net worth</b> to be crowned <b>Hop King of the World</b>. Drop under <b>-$400</b> and the bank takes the farm.</p>
+
+      <h2>What things cost</h2>
+      <table class="report-table ref-table">
+        <tr><td>Hop Yard</td><td>$120 · plants 1 acre of bines</td></tr>
+        <tr><td>Dug Well</td><td>$200 · waters the 8 tiles around it</td></tr>
+        <tr><td>Hop Kiln</td><td>$450 · dries 7,000 lb each fall</td></tr>
+        <tr><td>Pickers' Cabin</td><td>$260 · hands to pick 6 acres</td></tr>
+        <tr><td>Clear rock</td><td>$70 · turns bedrock into open dirt</td></tr>
+        <tr><td>Clear forest</td><td>$95 · fells timber into open dirt</td></tr>
+      </table>
+      <p class="tiny dim">Costs swing ±30% by region. Demolishing refunds 25%.</p>
+
+      <h2>How to actually win</h2>
+      <ul class="tips-list">
+        <li><b>Water is everything in dry country.</b> One well serves 9 tiles — cluster yards around it like a donut.</li>
+        <li><b>Match kilns to yards.</b> Each kiln handles ~5 mature yards. Overflow spoils wet at 18¢ on the dollar.</li>
+        <li><b>Cabins pick 6 acres.</b> Unpicked acres lose 35% of their crop. Count cabins before you count yards.</li>
+        <li><b>Contracts = safety, spot = gamble.</b> Sign contracts when prices are high; ride spot when the market's hot.</li>
+        <li><b>Reputation is money.</b> Win the quiz, help neighbors, impress Meeker — buyers pay more for a good name.</li>
+        <li><b>First-year bines yield 68%.</b> Plant in spring anyway; they pay full from next year.</li>
+      </ul>
+
+      <p class="copy" style="margin-top:16px">Hit <b>$32,000 net worth</b> to be crowned <b>Hop King of the World</b>. Drop under <b>-$400</b> in winter and the bank takes the farm. Rivals pass <b>$34,000</b> and steal the crown — pass them to take it back.</p>
       <div class="btn-row">
+        <button class="btn ghost" id="btn-how-faq" type="button">Read the FAQ</button>
         <button class="btn ghost" id="btn-back-title" type="button">Back</button>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="screen screen-wide" id="screen-faq" data-screen="faq">
+      <p class="brand">HOPCITY</p>
+      <h2>Questions from the county clerk</h2>
+      <div class="faq-list">
+        <details>
+          <summary>How do I win?</summary>
+          <p>Reach <b>$32,000 net worth</b> (cash + buildings). Net worth updates in the HUD every turn. Yards count $80 each, kilns $300, wells $120, cabins $160, HQ $400 — so buildings count even before they pay off.</p>
+        </details>
+        <details>
+          <summary>How do I lose?</summary>
+          <p>If cash sits below <b>-$400</b> when winter books close, the bank forecloses. Upkeep hits every winter, so keep a cushion. There is exactly one save — no reloads.</p>
+        </details>
+        <details>
+          <summary>A rival was crowned Hop King. Is it over?</summary>
+          <p>No. The first fortune past $34,000 wears the crown — pass their worth and the crown is yours. The game only truly ends at your win or foreclosure.</p>
+        </details>
+        <details>
+          <summary>My yards keep dying in summer. Why?</summary>
+          <p>In dry regions (rain under 45%) yards lose big vigor unless watered. A yard is watered if a <b>creek or well touches any of its 8 neighboring tiles</b>, or if you pay the summer "haul water" job. Thirsty yards show a red dot; watered show blue.</p>
+        </details>
+        <details>
+          <summary>What do the tile colors mean?</summary>
+          <p>Green = open dirt (build here). Blue waves = creek (free water adjacency). Gray = bedrock, dark green = timber — both need Clear Land first. The gold-outlined center tile is your HQ. Yard health shows as an inset ring: gold = strong, red = failing. First-year yards look slightly faded.</p>
+        </details>
+        <details>
+          <summary>Why did my harvest earn so little?</summary>
+          <p>Three usual culprits: <b>not enough kilns</b> (undried hops sell wet at ~18% value), <b>not enough cabins</b> (unpicked acres lose 35% of their crop), or <b>hauling fees</b> (4-6% of gross by region, more during rail disputes). The harvest modal shows each deduction.</p>
+        </details>
+        <details>
+          <summary>Should I sign winter contracts?</summary>
+          <p>Contracts lock a fixed price for a set amount of next year's crop — insurance against a bust. If you sign more pounds than you harvest, you <b>breach</b>: spot price takes an 8% penalty next fall. Sign conservatively until you know your yield.</p>
+        </details>
+        <details>
+          <summary>What's the market price based on?</summary>
+          <p>A base price that drifts each winter, multiplied by boom/bust events, your region's price rating, your average crop quality (vigor), and your reputation. Watch the arrow in the HUD.</p>
+        </details>
+        <details>
+          <summary>What does reputation do?</summary>
+          <p>Good rep (winning the almanac quiz, impressing Meeker, forgiving a neighbor's debt) adds a premium to every pound you sell. Bad rep (breaching contracts, squeezing neighbors) cuts it. Rep fades slowly — keep earning it.</p>
+        </details>
+        <details>
+          <summary>What's the winter quiz?</summary>
+          <p>The Valley Clarion prints one almanac question each winter. Answer right for a $25 purse and a small reputation bump. All questions come from the real history of Ezra Meeker and the Northwest hop boom.</p>
+        </details>
+        <details>
+          <summary>Does the game save?</summary>
+          <p>Automatically, in this browser, after every action. No account, no server. "Stake a new claim" plows the old save under permanently.</p>
+        </details>
+        <details>
+          <summary>Any keyboard shortcuts?</summary>
+          <p><b>Space</b> advances the season from the farm screen. That's the only one — everything else is clicks, like 1883 intended.</p>
+        </details>
+      </div>
+      <div class="btn-row">
+        <button class="btn ghost" id="btn-faq-back" type="button">Back</button>
       </div>
     </section>
 
@@ -241,6 +324,6 @@
     <span class="dock-step" id="dock-step">Spring 1883 · plant near water</span>
   </footer>
 
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>
