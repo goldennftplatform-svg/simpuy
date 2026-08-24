@@ -159,7 +159,7 @@ h2 { font-size: clamp(1.4rem, 5vw, 2rem); }
 .rc-blurb { color: var(--muted); font-size: .82rem; line-height: 1.35; margin: 6px 0 10px; }
 .rc-stats { display: grid; gap: 4px; font-size: .75rem; }
 .rc-stat { display: grid; grid-template-columns: 58px 1fr; align-items: center; gap: 6px; color: var(--muted); }
-.bar { height: 8px; background: #1a1612; border: 1px solid var(--stroke); overflow: hidden; }
+.bar { height: 8px; background: #1a1612; border: 1px solid var(--stroke); overflow: hidden; position: relative; }
 .bar i { position: absolute; inset: 0; right: auto; background: var(--grass); }
 .bar.warn i { background: var(--brick); }
 .rc-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: .78rem; }
