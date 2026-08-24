@@ -98,9 +98,41 @@
   ];
 
   const RIVALS_SEED = [
-    { name: "Moxee Maude", worth: 3600 },
-    { name: "Kiln King Cole", worth: 4300 },
-    { name: "Boise Basin Bet", worth: 3100 },
+    { name: "Silas T. Fenn", worth: 3600 },
+    { name: "Almira Crocker", worth: 4300 },
+    { name: "Phineas Judkins", worth: 3100 },
+  ];
+
+  // Valley lore drawn from the real Meeker/Puyallup record (1852 trail, hop boom, mansion years).
+  const LORE_ALMANAC = [
+    "English brewers take the bulk of Puyallup bales across the pond - London sets our prices.",
+    "Ezra Meeker farms over five hundred acres of hops up the valley. The man brags, but the bales back him.",
+    "An ox drinks eight to ten gallons on a hot day. Water is logistics, not scenery.",
+    "Old trail men still shudder at the cholera years on the Platte. This valley's fevers are mildew and aphids.",
+    "Most emigrant wagons were called prairie schooners - sails of white on a sea of grass.",
+    "Donation land claims cost $1.25 an acre once proved up. The Olympia land office stays busy.",
+    "The Meekers reached Portland in '52 with three dollars and a quarter between them. Fortune favors stubbornness.",
+    "Marion Meeker was six weeks old when the family wagons rolled from Iowa. Babies were born to the road.",
+    "Yakima's dry summers yield to controlled irrigation - ditches make the desert bloom.",
+    "Kiln fires are the dread of every yard. A lamp knocked into drying racks ruins a season's profit.",
+    "Emigrants marked calendars by Independence Rock - reach the landmark by the Fourth of July or fear the snows.",
+    "The Puyallup takes its name from the river people who fished these waters long before claims were staked.",
+  ];
+
+  // Almanac quiz - adapted from the Ezra Meeka/Oregon Trail record.
+  const TRIVIA_BANK = [
+    { q: "In what year did Ezra Meeker first cross the plains to Oregon?", c: ["1852", "1860", "1848", "1856"], a: 0 },
+    { q: "What business made Meeker's name in the Puyallup Valley?", c: ["Cattle ranching", "Gold mining", "Hop farming", "Lumber milling"], a: 2 },
+    { q: "By repute, how tall is Ezra Meeker?", c: ["Six foot four", "Five foot one", "Average for the territory", "Nobody has asked"], a: 1 },
+    { q: "How old was baby Marion Meeker when the family left Iowa?", c: ["Six weeks", "Six months", "Six years", "Not yet born"], a: 0 },
+    { q: "When the Meekers reached Portland in 1852, their pockets held about:", c: ["$3.25", "$300", "A land patent", "A hop contract"], a: 0 },
+    { q: "Most Puyallup hop bales sail to buyers in:", c: ["England", "Germany", "Boston", "San Francisco only"], a: 0 },
+    { q: "Which scourge haunted wagon companies on the old trail?", c: ["Cholera", "Smallpox", "Influenza", "Scurvy"], a: 0 },
+    { q: "A trail ox drinks roughly how much on a hot day?", c: ["8-10 gallons", "2-3 gallons", "A pint", "20 gallons"], a: 0 },
+    { q: "Emigrants raced which Wyoming landmark by the Fourth of July?", c: ["Independence Rock", "Devil's Gate", "Chimney Rock", "Scott's Bluff"], a: 0 },
+    { q: "What makes Yakima's hop country workable?", c: ["Dry summers tamed by irrigation", "Year-round rain", "Tropical heat", "Deep snowmelt only"], a: 0 },
+    { q: "Proved-up donation land claims cost settlers:", c: ["$1.25 per acre", "Nothing at all", "Ten dollars flat", "A share of crop"], a: 0 },
+    { q: "Canvas-topped wagon trains were nicknamed:", c: ["Prairie schooners", "Wind wagons", "Land frigates", "Dust ships"], a: 0 },
   ];
 
   const fmt$ = (n) => "$" + Math.round(n).toLocaleString("en-US");
@@ -345,6 +377,7 @@
           resolveWinterNumbers();
           done();
         },
+        almanacQuiz,
         winterModal,
         newYear,
         checkEnd
@@ -380,11 +413,46 @@
       add(2.2, laborShortEvent());
       add(1, meekerEvent());
       add(1.2, railEvent());
+      add(1, englishBuyersEvent());
+      add(1, neighborDebtEvent());
     }
     const total = pool.reduce((a, p) => a + p.w, 0);
     let roll = Math.random() * total;
     for (const p of pool) { roll -= p.w; if (roll <= 0) return p.def; }
     return pool[pool.length - 1].def;
+  }
+
+  function shuffleChoices(choices, answer) {
+    const idx = choices.map((_, i) => i);
+    for (let i = idx.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [idx[i], idx[j]] = [idx[j], idx[i]];
+    }
+    return { choices: idx.map((i) => choices[i]), answer: idx.indexOf(answer) };
+  }
+
+  function almanacQuiz(done) {
+    const t = TRIVIA_BANK[Math.floor(Math.random() * TRIVIA_BANK.length)];
+    const s = shuffleChoices(t.c, t.a);
+    showModal({
+      eyebrow: "The Valley Clarion · Almanac Quiz " + state.year,
+      title: "Question of the year",
+      body: '<p class="copy">' + t.q + '</p><p class="tiny dim">The Clarion pays a $25 purse for a correct answer.</p>',
+      choices: s.choices.map((c, i) => ({
+        label: c,
+        kind: "ghost",
+        fn: () => {
+          if (i === s.answer) {
+            state.cash += 25;
+            state.market.rep += 0.02;
+            feed("Quiz won! The Clarion pays the purse: +$25.", "good");
+          } else {
+            feed("Quiz lost - the answer was '" + t.c[t.a] + "'.", "info");
+          }
+          done();
+        },
+      })),
+    });
   }
 
   function maybeEvent(phase, done) {
@@ -510,6 +578,39 @@
       copy: "The old Hop King judged your sample bales 'the finest color in the territory' - and told half of Portland about it.",
       outcome: "Buyers pay a premium at this fall's scale.",
       fn: () => { state.market.rep += 0.09; },
+    };
+  }
+
+  function englishBuyersEvent() {
+    return {
+      title: "London buyers tour the valley",
+      copy: "Two agents from Burton-on-Trent walk the rows, pocketing cone samples and saying little. They ask after your kilns by name.",
+      outcome: "English interest steadies prices.",
+      fn: () => { state.market.mod = Math.max(state.market.mod, 1.08); },
+    };
+  }
+
+  function neighborDebtEvent() {
+    const aid = 60;
+    if (state.cash < aid) {
+      return {
+        title: "A neighbor grower ruined",
+        copy: "Judkins next door can't cover his seed debt. You haven't the cash to help - his poles go up for sale by autumn.",
+        outcome: "Nothing to be done. The valley notes it.",
+        fn: () => { state.market.repPenalty = Math.min(state.market.repPenalty + 0.01, 0.05); },
+      };
+    }
+    return {
+      title: "A neighbor grower ruined",
+      copy: "Phineas Judkins can't cover his seed note. Forgive part of it and the valley will talk kindly of you - or squeeze him dry while you can.",
+      choices: [
+        { label: "Forgive half his debt", sub: "-" + fmt$(aid) + " · buyers remember kindness", kind: "primary",
+          fn: () => { state.cash -= aid; state.market.rep += 0.06; },
+          result: "Meeker himself once forgave near $100,000 in bust years. Good company.", feedKind: "gold" },
+        { label: "Collect what's owed", sub: "+" + fmt$(40) + " · hard feelings", kind: "danger",
+          fn: () => { state.cash += 40; state.market.repPenalty = Math.min(state.market.repPenalty + 0.02, 0.06); },
+          result: "Paid in full. The valley keeps count.", feedKind: "bad" },
+      ],
     };
   }
 
@@ -695,6 +796,8 @@
     ui.trainedThisSummer = false;
     ui.selectedTile = null;
     feed("Spring " + state.year + " - the valley wakes up.", "event");
+    const lore = LORE_ALMANAC[Math.floor(Math.random() * LORE_ALMANAC.length)];
+    feed("Almanac: " + lore, "event");
     done();
   }
 
@@ -724,6 +827,7 @@
         title: "HOP KING OF THE WORLD",
         body:
           '<p class="copy">They hang a crown of bines over the courthouse door in your name. Your bales set the territory price, and the brokers stand when you walk in.</p>' +
+          '<p class="copy dim">Talk in town says Meeker means to raise a grand house on Spring Street someday. Perhaps you will build one finer.</p>' +
           '<table class="report-table">' +
           "<tr><td>Ranch</td><td>" + state.ranch + "</td></tr>" +
           "<tr><td>Region</td><td>" + REG().name + ", " + REG().st + "</td></tr>" +
