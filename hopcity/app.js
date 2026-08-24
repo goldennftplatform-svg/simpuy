@@ -1121,6 +1121,50 @@
 
 
   const ICON_FOR = { hq: "i-hq", yard: "i-pole", well: "i-well", kiln: "i-kiln", cabin: "i-cabin" };
+
+  const SPRITES = {
+    yard:
+      '<svg class="spr spr-yard" viewBox="0 0 24 24">' +
+      '<g stroke="#5a4a30" stroke-width="1.5" stroke-linecap="round">' +
+      '<path d="M7 21V7"/><path d="M12 21V4"/><path d="M17 21V7"/></g>' +
+      '<g class="vines" stroke="#42602a" stroke-width="1" fill="none">' +
+      '<path d="M7 18c2-1 2-3 0-4M7 13c2-1 2-3 0-4"/>' +
+      '<path d="M12 16c2.4-1.2 2.4-3.6 0-5M12 10c2.4-1.2 2.4-3.6 0-5"/>' +
+      '<path d="M17 18c-2-1-2-3 0-4M17 13c-2-1-2-3 0-4"/></g>' +
+      '<g class="cones">' +
+      '<ellipse cx="6.4" cy="15" rx="1.5" ry="2.2"/><ellipse cx="7.8" cy="10.5" rx="1.3" ry="1.9"/>' +
+      '<ellipse cx="11.3" cy="13" rx="1.6" ry="2.4"/><ellipse cx="12.8" cy="7.5" rx="1.4" ry="2"/>' +
+      '<ellipse cx="16.4" cy="15" rx="1.5" ry="2.2"/><ellipse cx="17.8" cy="10.5" rx="1.3" ry="1.9"/></g></svg>',
+    kiln:
+      '<svg class="spr" viewBox="0 0 24 24">' +
+      '<path d="M7 21v-7.5L12 9l5 4.5V21z" fill="#8a5a34" stroke="#241408" stroke-width="1"/>' +
+      '<path class="roof" d="M5.6 13.8L12 8l6.4 5.8" fill="none" stroke="#5a3a1e" stroke-width="2.4" stroke-linecap="round"/>' +
+      '<rect x="10.4" y="16.5" width="3.2" height="4.5" rx=".6" fill="#241408"/>' +
+      '<rect x="15.1" y="15.5" width="1.6" height="2.4" fill="#241408"/></svg>' +
+      '<span class="smoke"><i></i><i></i><i></i></span>',
+    cabin:
+      '<svg class="spr" viewBox="0 0 24 24">' +
+      '<path d="M6 21v-6.5h12V21z" fill="#7a5c38" stroke="#241a0c" stroke-width="1"/>' +
+      '<path class="roof" d="M4.5 14.5L12 8l7.5 6.5z" fill="#5a4028" stroke="#241a0c" stroke-width="1"/>' +
+      '<rect class="glow" x="8" y="16.2" width="3" height="3" rx=".4" fill="#e8b84a"/>' +
+      '<rect x="13.6" y="16.2" width="2.6" height="4.8" rx=".4" fill="#3a2814"/></svg>',
+    well:
+      '<svg class="spr" viewBox="0 0 24 24">' +
+      '<ellipse cx="12" cy="18.5" rx="6" ry="2.4" fill="#6a6258" stroke="#241c14" stroke-width="1"/>' +
+      '<ellipse cx="12" cy="18" rx="3.6" ry="1.4" fill="#1e4a66"/>' +
+      '<path d="M7.5 18V9M16.5 18V9" stroke="#5a4028" stroke-width="1.6"/>' +
+      '<path class="roof" d="M6 9.5L12 4.5l6 5" fill="none" stroke="#5a4028" stroke-width="2" stroke-linecap="round"/>' +
+      '<path d="M12 5.5v6" stroke="#5a4028" stroke-width=".8"/>' +
+      '<rect x="10.8" y="11" width="2.4" height="2" fill="#4a3418"/></svg>',
+    hq:
+      '<svg class="spr" viewBox="0 0 24 24">' +
+      '<path d="M5.5 21v-8L12 8l6.5 5v8z" fill="#4a5c48" stroke="#141c12" stroke-width="1"/>' +
+      '<path class="roof" d="M4 13.5L12 6.5l8 7" fill="none" stroke="#2c2418" stroke-width="2.6" stroke-linecap="round"/>' +
+      '<rect class="glow" x="9" y="14.5" width="2.6" height="2.6" fill="#e8b84a"/>' +
+      '<rect x="13.4" y="16" width="2.8" height="5" fill="#2c2010"/>' +
+      '<path d="M12 6.5V3.2" stroke="#2c2418" stroke-width="1"/>' +
+      '<path class="flag" d="M12 3.2h3.6l-1 1.2 1 1.2H12z" fill="#b85c38"/></svg>',
+  };
   const SEASON_TIPS = [
     "Spring: plant near water - every acre pays this fall",
     "Summer: train the bines - keep them watered",
@@ -1211,16 +1255,16 @@
     const dryRegion = REG().rain < 0.6;
     const boardEl = $("#farm-board");
     if (boardEl.parentElement) boardEl.parentElement.setAttribute("data-season", state.seasonIdx);
+    const sky = document.getElementById("sky");
+    if (sky) sky.className = "sky sky-hop s" + state.seasonIdx;
     for (let i = 0; i < TILES_N; i++) {
       const t = state.tiles[i];
       let cls = "tile t-" + t.t + (t.alt ? " alt" : "");
       let inner = "";
       if (t.b) {
         cls += " b-" + t.b.type;
-        inner += svgIcon(ICON_FOR[t.b.type]);
-      } else if (t.t === "creek") inner += svgIcon("i-creek");
-      else if (t.t === "rock") inner += svgIcon("i-rock");
-      else if (t.t === "forest") inner += svgIcon("i-tree");
+        inner += SPRITES[t.b.type] || "";
+      }
       if (isYard(i)) {
         const h = t.b.health;
         cls += h >= 0.7 ? " h-ok" : h >= 0.45 ? " h-mid" : " h-low";
@@ -1540,6 +1584,7 @@
       '<button type="button" class="region-card' + (claimSel === r.id ? " selected" : "") +
       '" data-region="' + r.id + '">' +
       '<div class="rc-top"><h3>' + r.name + '</h3><span class="state-badge">' + r.st + "</span></div>" +
+      '<i class="rc-swatch" style="background:linear-gradient(180deg,hsl(' + Math.round(75 + r.rain * 55) + ',' + Math.round(24 + r.soil * 14) + '%,' + Math.round(30 + r.soil * 8) + '%),#1c1610)"></i>' +
       '<p class="rc-blurb">' + r.blurb + "</p>" +
       '<div class="rc-stats">' +
       '<div class="rc-stat"><span>Rain</span>' + bar(r.rain, 0.45) + "</div>" +
