@@ -1,7 +1,8 @@
 (() => {
   "use strict";
 
-  const SAVE_KEY = "hopcity_save_v5";
+  const SAVE_KEY = "hopcity_save_v6";
+  const saveKey = () => (state && state.daily ? "hopcity_daily_" + state.daily : SAVE_KEY);
   const BOARD_N = 10;
   const TILES_N = BOARD_N * BOARD_N;
   const CENTER = 45;
@@ -26,9 +27,9 @@
   ];
 
   const VARIETIES = {
-    C: { key: "C", name: "Pacific Cluster", yield: 1.0, price: 1.0, cost: 0 },
-    F: { key: "F", name: "Fuggle", yield: 0.85, price: 1.22, cost: 15 },
-    W: { key: "W", name: "White Vine", yield: 1.18, price: 0.88, cost: 10 },
+    C: { key: "C", name: "Pacific Cluster", yield: 1.0, price: 1.0, cost: 0, trait: "Hardy and honest - the grower's default." },
+    F: { key: "F", name: "Fuggle", yield: 0.85, price: 1.22, cost: 15, aphidBait: true, trait: "+22% price, but aphids love it." },
+    W: { key: "W", name: "White Vine", yield: 1.18, price: 0.88, cost: 10, mildewBait: true, trait: "+18% yield, but mildew loves it." },
   };
 
   const COSTS = { yard: 120, well: 200, kiln: 450, cabin: 260 };
@@ -174,6 +175,13 @@
         g.gain.setValueAtTime(0.055, t);
         g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
         o.start(t); o.stop(t + 0.27);
+      } else if (kind === "bell") {
+        o.type = "sine";
+        o.frequency.setValueAtTime(880, t);
+        o.frequency.setValueAtTime(1174, t + 0.12);
+        g.gain.setValueAtTime(0.09, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+        o.start(t); o.stop(t + 0.95);
       } else {
         o.type = "sine";
         o.frequency.setValueAtTime(660, t);
@@ -181,6 +189,46 @@
         g.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
         o.start(t); o.stop(t + 0.1);
       }
+    } catch (e) {}
+  }
+
+  // Season ambience: soft filtered noise, character shifts per season
+  let amb = null;
+  function startAmbience() {
+    if (muted || amb || !audioCtx) return;
+    try {
+      const len = audioCtx.sampleRate * 2;
+      const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+      const d = buf.getChannelData(0);
+      let last = 0;
+      for (let i = 0; i < len; i++) {
+        const w = Math.random() * 2 - 1;
+        last = (last + 0.02 * w) / 1.02;
+        d[i] = last * 3.5;
+      }
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf; src.loop = true;
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = "lowpass"; filter.frequency.value = 320;
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0.015;
+      src.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+      src.start();
+      amb = { src, filter, gain };
+    } catch (e) {}
+  }
+  const AMB_SET = [
+    { f: 300, g: 0.012 },
+    { f: 480, g: 0.014 },
+    { f: 720, g: 0.016 },
+    { f: 220, g: 0.018 },
+  ];
+  function setAmbience(season) {
+    if (!amb) { startAmbience(); return; }
+    try {
+      const s = AMB_SET[season] || AMB_SET[0];
+      amb.filter.frequency.linearRampToValueAtTime(s.f, audioCtx.currentTime + 1.5);
+      amb.gain.gain.linearRampToValueAtTime(muted ? 0 : s.g, audioCtx.currentTime + 1.5);
     } catch (e) {}
   }
 
@@ -208,6 +256,13 @@
   let stepQueue = [];
   let busy = false;
   let lastCash = 0;
+
+  // Seeded RNG: gameplay rolls go through RNG() so Daily Claims can be deterministic.
+  let RNG = Math.random;
+  function setSeed(n) { RNG = mulberry32(n | 0); }
+  function dailyNumber() {
+    return Math.floor((Date.now() - new Date(2026, 0, 1).getTime()) / 86400000) + 1;
+  }
 
   const TUT_SEEN_KEY = "hopcity_tutorial_seen";
   function showTutorial() {
@@ -310,11 +365,20 @@
     });
   }
 
+  const POSTCARDS = {
+    "Claim Staker": "The county clerk finally spells your name right.",
+    "Yard Boss": "Sixteen men ask you for work by name.",
+    "Hop Baron": "Your bales set the price from Tacoma to Portland.",
+  };
+
   function showRankup(title) {
     const box = document.getElementById("rankup");
     document.getElementById("rankup-title").textContent = title;
+    const sub = document.getElementById("rankup-sub");
+    if (sub) sub.textContent = POSTCARDS[title] || "";
     box.classList.remove("hidden");
     sfx("coin");
+    if (title === "Hop Baron") ledgerPush(state.year, "Reached the rank of Hop Baron.");
   }
 
   function renderGoalTicks() {
@@ -351,12 +415,13 @@
 
   function newState(regionId, name) {
     return {
-      v: 3,
+      v: 4,
       regionId,
       ranch: name || "Meeker & Sons",
       year: 1883,
       seasonIdx: 0,
       cash: 1500,
+      daily: null,
       tiles: genTerrain(REGIONS.find((r) => r.id === regionId)),
       contracts: [],
       market: { price: 0.58, lastPrice: 0.58, mod: 1, rep: 0, repPenalty: 0 },
@@ -367,9 +432,13 @@
       rivalPoach: 0,
       wageWar: false,
       poachedThisYear: false,
-      storyBeat: 4 + Math.floor(Math.random() * 4),
+      storyBeat: 4 + Math.floor(RNG() * 4),
       storyDone: false,
       landGrab: null,
+      apocalypseDone: false,
+      aphidEra: false,
+      bestNet: 0,
+      ledger: [],
       rivals: RIVALS_SEED.map((x) => ({ ...x, passed: false })),
       crownedRival: null,
       won: false,
@@ -411,8 +480,10 @@
     const b = state.tiles[i].b;
     const v = VARIETIES[b.v];
     const matured = state.year - b.plantedYear >= 1 ? 1 : 0.68;
-    return { v, matured, lb: 1000 * REG().yieldMul * v.yield * b.health * matured };
+    const parcel = state.tiles[i].parcel ? 1.25 : 1;
+    return { v, matured, lb: 1000 * REG().yieldMul * v.yield * b.health * matured * parcel };
   }
+  const hasVariety = (v) => state.tiles.some((t) => t.b && t.b.type === "yard" && t.b.v === v);
 
   const countType = (type) => state.tiles.filter((t) => t.b && t.b.type === type).length;
   const assetTotal = () =>
@@ -434,14 +505,22 @@
 
   function save() {
     if (!state) return;
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
+    try { localStorage.setItem(saveKey(), JSON.stringify(state)); } catch (e) {}
   }
   function loadSave() {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return null;
       const s = JSON.parse(raw);
-      return s && s.v === 3 && !s.lost ? s : null;
+      return s && s.v === 4 && !s.lost ? s : null;
+    } catch (e) { return null; }
+  }
+  function loadDaily() {
+    try {
+      const raw = localStorage.getItem("hopcity_daily_" + dailyNumber());
+      if (!raw) return null;
+      const s = JSON.parse(raw);
+      return s && s.v === 4 && !s.lost ? s : null;
     } catch (e) { return null; }
   }
   function wipeSave() {
@@ -540,6 +619,7 @@
         almanacQuiz,
         winterModal,
         newYear,
+        parcelAuction,
         checkEnd
       );
     }
@@ -563,8 +643,10 @@
     const pool = [];
     const add = (w, def) => pool.push({ w, def });
     if (phase === "summer") {
-      if (r.rain >= 0.6) add(3, mildewEvent());
-      add(r.rain < 0.45 ? 4 : 2, aphidEvent());
+      const fuggle = hasVariety("F");
+      const white = hasVariety("W");
+      if (r.rain >= 0.6) add(white ? 6 : 3, mildewEvent());
+      add((r.rain < 0.45 ? 4 : 2) * (fuggle ? 2 : 1) * (state.aphidEra ? 1.5 : 1), aphidEvent());
       add(1.5, hailEvent());
       add(0.8, kilnFireEvent());
     } else {
@@ -577,7 +659,7 @@
       add(1, neighborDebtEvent());
     }
     const total = pool.reduce((a, p) => a + p.w, 0);
-    let roll = Math.random() * total;
+    let roll = RNG() * total;
     for (const p of pool) { roll -= p.w; if (roll <= 0) return p.def; }
     return pool[pool.length - 1].def;
   }
@@ -592,7 +674,7 @@
   }
 
   function almanacQuiz(done) {
-    const t = TRIVIA_BANK[Math.floor(Math.random() * TRIVIA_BANK.length)];
+    const t = TRIVIA_BANK[Math.floor(RNG() * TRIVIA_BANK.length)];
     const s = shuffleChoices(t.c, t.a);
     showModal({
       eyebrow: "The Valley Clarion · Almanac Quiz " + state.year,
@@ -608,14 +690,15 @@
             feed("Quiz won! The Clarion pays the purse: +$25.", "good");
             floatText(null, "+$25", true);
             sfx("coin");
-            if (Math.random() < 0.35 && !state.wageWar) {
-              const rv = state.rivals[Math.floor(Math.random() * state.rivals.length)];
+            if (RNG() < 0.35 && !state.wageWar) {
+              const rv = state.rivals[Math.floor(RNG() * state.rivals.length)];
               state.wageWar = true;
               feed(rv.name + " heard of your prize - expect wage demands this winter.", "bad");
             }
           } else {
             feed("Quiz lost - the answer was '" + t.c[t.a] + "'.", "info");
             sfx("bad");
+            if (RNG() < 0.45) trash("quiz");
           }
           done();
         },
@@ -625,12 +708,16 @@
 
   function maybeEvent(phase, done) {
     const spray = state.summerOrder === "spray";
+    if (!state.apocalypseDone && state.year >= 1891 && phase === "summer") {
+      apocalypseEvent(done);
+      return;
+    }
     if (!state.storyDone && phase === "summer" && state.year >= (state.storyBeat || 99)) {
       storyEvent(done);
       return;
     }
     const summerChance = spray ? 0.28 : 0.55;
-    if (Math.random() > (phase === "summer" ? summerChance : 0.5)) return done();
+    if (RNG() > (phase === "summer" ? summerChance : 0.5)) return done();
     const def = pickEvent(phase);
     feed(def.title, "event");
     if (def.choices) {
@@ -805,15 +892,20 @@
     const pool = [];
     if (countType("kiln") > 0) pool.push(kilnStrikeEvent);
     pool.push(marketCraterEvent, foremanEvent);
-    const def = pool[Math.floor(Math.random() * pool.length)]();
+    const def = pool[Math.floor(RNG() * pool.length)]();
     feed(def.title, "event");
     const choices = def.choices
       ? def.choices.map((c) => ({
           label: c.label, sub: c.sub, kind: c.kind,
-          fn: () => { c.fn(); if (c.result) feed(c.result, c.feedKind || "info"); done(); },
+          fn: () => {
+            c.fn();
+            if (c.result) { feed(c.result, c.feedKind || "info"); ledgerPush(state.year, def.title + " - " + c.result); }
+            else ledgerPush(state.year, def.title);
+            done();
+          },
         }))
       : [{ label: "Weather it", kind: "primary",
-          fn: () => { if (def.fn) def.fn(); if (def.outcome) feed(def.outcome, "event"); done(); } }];
+          fn: () => { if (def.fn) def.fn(); if (def.outcome) { feed(def.outcome, "event"); ledgerPush(state.year, def.title + " - " + def.outcome); } done(); } }];
     showModal({
       eyebrow: "DISPATCH · " + SEASONS[state.seasonIdx] + " " + state.year,
       title: def.title,
@@ -858,6 +950,98 @@
           fn: () => { state.cash -= payroll; damageAllYards(0.08); }, result: "Paid from your own pocket. A sour summer.", feedKind: "bad" },
       ],
     };
+  }
+
+  function ledgerPush(year, text) {
+    if (!state.ledger) state.ledger = [];
+    state.ledger.push({ y: year, t: text });
+    if (state.ledger.length > 12) state.ledger.shift();
+  }
+
+  const TRASH = {
+    pass: [
+      "Enjoy the view from second place, {me}.",
+      "Cute little ranch you've got there, {me}.",
+      "The valley was ours before you crossed the pass, {me}.",
+      "Money talks, {me}. Yours stutters.",
+    ],
+    quiz: [
+      "Beginner's luck is the only luck you have, {me}.",
+      "Stay off the quiz page, {me}. Books bite back.",
+      "I've forgotten more about hops than you'll ever know, {me}.",
+    ],
+    poach: [
+      "Your buyer drinks with me now, {me}.",
+      "Business is business, {me}. Nothing personal.",
+      "I hear your bales make fine mulch, {me}.",
+    ],
+    grab: [
+      "Half the valley on credit, and worth every note.",
+      "The sheriff knows my name better than yours now.",
+      "Keep planting, {me}. You're farming my future backyard.",
+    ],
+  };
+  function trash(kind) {
+    const rv = state.rivals[Math.floor(RNG() * state.rivals.length)];
+    const line = TRASH[kind][Math.floor(RNG() * TRASH[kind].length)].replace("{me}", state.ranch);
+    feed(rv.name + ": '" + line + "'", "bad");
+  }
+
+  function apocalypseEvent(done) {
+    state.apocalypseDone = true;
+    state.aphidEra = true;
+    const sulfur = Math.round(600 * REG().costMul * farmScale());
+    feed("THE APHID YEARS HAVE ARRIVED.", "bad");
+    ledgerPush(state.year, "The great aphid years arrived. The whole valley fought the louse.");
+    showModal({
+      eyebrow: "DISPATCH · Summer " + state.year,
+      title: "The louse arrives",
+      body:
+        '<p class="copy">Grey-green clouds of hop aphids drift over the valley like weather. Old growers say nothing will be the same after this season - and they are right.</p>' +
+        '<p class="copy"><b>This is 1891. The boom is over; survival begins.</b></p>',
+      choices: [
+        { label: "Sulfur everything, spare no cost", sub: "-" + fmt$(sulfur) + " · yards take -10%", kind: "primary",
+          fn: () => { state.cash -= sulfur; damageAllYards(0.1); },
+          result: "The rows reek of sulfur, but the bines hold.", feedKind: "good" },
+        { label: "Endure it", sub: "yards take -30% · aphids worse ever after", kind: "danger",
+          fn: () => damageAllYards(0.3),
+          result: "The louse moves in like a landlord.", feedKind: "bad" },
+      ],
+    });
+    done();
+  }
+
+  function parcelAuction(done) {
+    if (state.year < 3 || RNG() > 0.4) return done();
+    let block = null;
+    for (let y = 0; y < BOARD_N - 1 && !block; y++) {
+      for (let x = 0; x < BOARD_N - 1 && !block; x++) {
+        const idx = [y * BOARD_N + x, y * BOARD_N + x + 1, (y + 1) * BOARD_N + x, (y + 1) * BOARD_N + x + 1];
+        if (idx.every((i) => { const t = state.tiles[i]; return t.t === "grass" && !t.b && i !== CENTER && !t.parcel; })) block = idx;
+      }
+    }
+    if (!block) return done();
+    const price = Math.round((1200 + state.year * 250) * REG().costMul);
+    showModal({
+      eyebrow: "Sheriff's auction · Spring " + state.year,
+      title: "The Hendrickson parcel",
+      body:
+        '<p class="copy">Old Hendrickson died owing the bank. His four acres go on the block this morning - seeded soil, good drainage, a stone\'s throw from your fence line.</p>' +
+        '<p class="copy"><b>Yards planted there yield +25%.</b></p>',
+      choices: [
+        { label: "Bid and win the parcel", sub: "-" + fmt$(price) + " · 4 acres marked on your map", kind: "primary",
+          fn: () => {
+            if (state.cash < price) { feed("Bid called - you couldn't cover it. The parcel goes to Fenn.", "bad"); return; }
+            state.cash -= price;
+            block.forEach((i) => { state.tiles[i].parcel = true; });
+            feed("The Hendrickson parcel is yours - four acres of the best dirt in the valley.", "gold");
+            ledgerPush(state.year, "Bought the Hendrickson parcel at auction.");
+            sfx("coin");
+          } },
+        { label: "Let Fenn have it", sub: "no purchase", kind: "ghost", fn: () => {} },
+      ],
+    });
+    done();
   }
 
   function damageAllYards(amount) {
@@ -994,6 +1178,33 @@
     mkt.rep *= 0.25;
     floatText(null, (net >= 0 ? "+" : "-") + fmt$(Math.abs(net)), net >= 0, true);
     if (net > 0) { coinBurst(null); sfx("coin"); } else { sfx("bad"); }
+    if (net >= 4000) {
+      coinBurst(null);
+      sfx("bell");
+      const frame = document.querySelector(".board-frame");
+      if (frame) {
+        frame.classList.add("jackpot");
+        setTimeout(() => frame.classList.remove("jackpot"), 900);
+      }
+      const col = document.querySelector(".board-col");
+      if (col) {
+        const j = document.createElement("div");
+        j.className = "jackpot-num";
+        col.appendChild(j);
+        const start = performance.now(), dur = 1000, target = net;
+        const step = (now) => {
+          const t = Math.min(1, (now - start) / dur);
+          j.textContent = "+" + fmt$(target * (1 - Math.pow(1 - t, 3)));
+          if (t < 1) requestAnimationFrame(step);
+          else setTimeout(() => j.remove(), 500);
+        };
+        requestAnimationFrame(step);
+      }
+      if (net > (state.bestNet || 0)) {
+        state.bestNet = net;
+        ledgerPush(state.year, "Banked " + fmt$(net) + " in a single fall.");
+      }
+    }
     state.rivalPoach = 0;
     state.summerOrder = null;
     if (spoiled > 0) {
@@ -1039,7 +1250,7 @@
 
     const m = state.market;
     m.lastPrice = m.price;
-    m.price = clamp(m.price + (Math.random() - 0.47) * 0.09, 0.34, 1.15);
+    m.price = clamp(m.price + (RNG() - 0.47) * 0.09, 0.34, 1.15);
     m.mod += (1 - m.mod) * 0.5;
     const up = m.price >= m.lastPrice;
     feed(
@@ -1056,17 +1267,20 @@
       rv.grab = 2;
       rv.worth = Math.round(rv.worth * 1.5);
       feed(rv.name + " just bought half the valley on credit - he's making a run at the crown!", "gold");
+      trash("grab");
+      ledgerPush(state.year, rv.name + " bought half the valley on credit, chasing the crown.");
     }
     state.rivals.forEach((rv) => {
       if (!rv.passed && worth > rv.worth && rv.worth > 0) {
         rv.passed = true;
         feed(rv.name + " tips his hat through gritted teeth - you are the richer grower now.", "gold");
+        if (RNG() < 0.6) trash("pass");
         state.market.mod = Math.max(0.6, state.market.mod - 0.05);
       }
       const early = worth < KING_WORTH * 0.4;
       const chased = worth > rv.worth * 1.5;
-      let g = early ? 0.12 + Math.random() * 0.1 : 0.07 + Math.random() * 0.09;
-      if (chased) g = 0.1 + Math.random() * 0.1;
+      let g = early ? 0.12 + RNG() * 0.1 : 0.07 + RNG() * 0.09;
+      if (chased) g = 0.1 + RNG() * 0.1;
       if (rv.grab > 0) { g = 0.25; rv.grab--; }
       rv.worth = Math.round(rv.worth * (1 + g));
       if (!state.crownedRival && rv.worth >= RIVAL_KING) {
@@ -1177,10 +1391,85 @@
     state.poachedThisYear = false;
     ui.selectedTile = null;
     feed("Spring " + state.year + " - the valley wakes up.", "event");
-    const lore = LORE_ALMANAC[Math.floor(Math.random() * LORE_ALMANAC.length)];
+    const lore = LORE_ALMANAC[Math.floor(RNG() * LORE_ALMANAC.length)];
     feed("Almanac: " + lore, "event");
     showBanner("SPRING", state.year + " · new year");
     done();
+  }
+
+  function drawCone(x, cx, cy, s) {
+    x.save(); x.translate(cx, cy); x.scale(s / 24, s / 24);
+    x.fillStyle = "#a2bd52"; x.strokeStyle = "#1a1612"; x.lineWidth = 1.2;
+    x.beginPath();
+    x.moveTo(0, -11);
+    x.bezierCurveTo(7, -11, 8, -4, 5.5, 6);
+    x.bezierCurveTo(4, 11, -4, 11, -5.5, 6);
+    x.bezierCurveTo(-8, -4, -7, -11, 0, -11);
+    x.fill(); x.stroke();
+    x.strokeStyle = "rgba(26,22,18,.5)";
+    for (let i = -1; i <= 1; i++) {
+      x.beginPath(); x.moveTo(-5, i * 4.5); x.lineTo(5, i * 4.5 - 2); x.stroke();
+    }
+    x.restore();
+  }
+  function wrapText(x, text, cx, y, maxW, lh) {
+    const words = text.split(" ");
+    let line = ""; const lines = [];
+    for (const w of words) {
+      const test = line + w + " ";
+      if (x.measureText(test).width > maxW && line) { lines.push(line.trim()); line = w + " "; }
+      else line = test;
+    }
+    lines.push(line.trim());
+    lines.forEach((l, i) => x.fillText(l, cx, y + i * lh));
+  }
+
+  function shareCard() {
+    const c = document.createElement("canvas");
+    c.width = 1000; c.height = 1250;
+    const g = c.getContext("2d");
+    g.fillStyle = "#1a1612"; g.fillRect(0, 0, 1000, 1250);
+    g.strokeStyle = "#d4a843"; g.lineWidth = 6; g.strokeRect(30, 30, 940, 1190);
+    g.strokeStyle = "rgba(212,168,67,.35)"; g.lineWidth = 2; g.strokeRect(46, 46, 908, 1158);
+    g.textAlign = "center";
+    g.fillStyle = "#d4a843"; g.font = "900 44px 'Archivo Black', Impact, sans-serif";
+    g.fillText("HOPCITY", 500, 130);
+    g.fillStyle = "#a89888"; g.font = "600 22px 'Space Grotesk', sans-serif";
+    g.fillText("TERRITORIAL FAIR · " + state.year, 500, 166);
+    drawCone(g, 500, 240, 64);
+    g.fillStyle = "#f5f0e8"; g.font = "900 58px 'Archivo Black', Impact, sans-serif";
+    g.fillText(state.ranch, 500, 400);
+    g.fillStyle = "#d4a843"; g.font = "900 38px 'Archivo Black', Impact, sans-serif";
+    g.fillText(titleFor(netWorth()), 500, 462);
+    const rows = [
+      ["Years on the land", String(state.year - 1883 + 1)],
+      ["Lifetime earnings", fmt$(state.lifetimeEarned)],
+      ["Hops shipped", fmtLb(state.totalLb)],
+      ["Region", REG().name + ", " + REG().st],
+    ];
+    g.font = "600 30px 'Space Grotesk', sans-serif";
+    rows.forEach((r2, i) => {
+      const y = 570 + i * 62;
+      g.textAlign = "left"; g.fillStyle = "#a89888"; g.fillText(r2[0], 140, y);
+      g.textAlign = "right"; g.fillStyle = "#f5f0e8"; g.fillText(r2[1], 860, y);
+      g.strokeStyle = "rgba(168,152,136,.25)"; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(140, y + 16); g.lineTo(860, y + 16); g.stroke();
+    });
+    const led = state.ledger || [];
+    if (led.length) {
+      const best = led[led.length - 1];
+      g.textAlign = "center"; g.fillStyle = "#a89888"; g.font = "italic 500 26px 'Space Grotesk', sans-serif";
+      wrapText(g, '"' + best.t + '" — ' + best.y, 500, 880, 720, 34);
+    }
+    g.fillStyle = "#d4a843"; g.font = "900 34px 'Archivo Black', Impact, sans-serif";
+    g.fillText("CAN YOU CROWN FASTER?", 500, 1080);
+    g.fillStyle = "#a89888"; g.font = "600 24px 'Space Grotesk', sans-serif";
+    g.fillText(state.daily ? "Daily Claim #" + state.daily : "hopcity", 500, 1122);
+    const a = document.createElement("a");
+    a.download = "hopcity-" + state.ranch.replace(/\W+/g, "-").toLowerCase() + ".png";
+    a.href = c.toDataURL("image/png");
+    a.click();
+    sfx("coin");
   }
 
   function checkEnd(done) {
@@ -1204,6 +1493,7 @@
     }
     if (!state.won && worth >= KING_WORTH) {
       state.won = true;
+      ledgerPush(state.year, "Crowned Hop King of the World.");
       showModal({
         eyebrow: "Territorial Fair · " + state.year,
         title: "HOP KING OF THE WORLD",
@@ -1215,7 +1505,10 @@
           "<tr><td>Region</td><td>" + REG().name + ", " + REG().st + "</td></tr>" +
           "<tr><td>Years on the land</td><td>" + (state.year - 1883 + 1) + "</td></tr>" +
           "<tr><td>Hops shipped</td><td>" + fmtLb(state.totalLb) + "</td></tr>" +
-          '<tr class="total"><td>Net worth</td><td>' + fmt$(worth) + "</td></tr></table>",
+          '<tr class="total"><td>Net worth</td><td>' + fmt$(worth) + "</td></tr></table>" +
+          '<p class="eyebrow" style="margin-top:14px">Ranch ledger</p>' +
+          (state.ledger || []).slice(-4).map((l) => '<p class="tiny" style="margin:2px 0">· <b style="color:var(--wheat)">' + l.y + "</b> — " + l.t + "</p>").join("") +
+          '<button class="btn gold" id="share-card-btn" type="button" style="margin-top:12px">Save share card</button>',
         choices: [
           { label: "Keep ruling the valley", kind: "primary", fn: () => done() },
           {
@@ -1224,6 +1517,10 @@
             fn: () => { wipeSave(); state = null; showScreen("title"); refreshContinue(); goClaim(); },
           },
         ],
+        onOpen: (box) => {
+          const sb = box.querySelector("#share-card-btn");
+          if (sb) sb.addEventListener("click", shareCard);
+        },
       });
       return;
     }
@@ -1346,6 +1643,9 @@
     const seasonColors = ["#7ab87a", "#d4a843", "#b85c38", "#6b9eb8"];
     seasonChip.style.background = seasonColors[state.seasonIdx];
     $("#hud-year").textContent = state.year;
+    const dailyBadge = $("#hud-daily");
+    if (dailyBadge) dailyBadge.classList.toggle("hidden", !state.daily);
+    setAmbience(state.seasonIdx);
     $("#season-dots").innerHTML = SEASONS.map((s, idx) => {
       let c = "s-dot";
       if (idx === state.seasonIdx) c += " on";
@@ -1384,6 +1684,7 @@
         if (t.b.type === "yard") inner += SPRITES.yard.replace("spr-yard", "spr-yard v-" + t.b.v);
         else inner += SPRITES[t.b.type] || "";
       } else if (t.t === "forest") inner += SPRITES.forest;
+      if (t.parcel) inner += '<i class="parcel-mark"></i>';
       if (isYard(i)) {
         const h = t.b.health;
         cls += h >= 0.7 ? " h-ok" : h >= 0.45 ? " h-mid" : " h-low";
@@ -1845,7 +2146,50 @@
       muted = !muted;
       try { localStorage.setItem("hopcity_muted", muted ? "1" : "0"); } catch (e) {}
       syncSnd();
-      if (!muted) sfx("tick");
+      if (muted) { if (amb) { try { amb.gain.gain.value = 0; } catch (e) {} } }
+      else { sfx("tick"); setAmbience(state ? state.seasonIdx : 0); }
+    });
+
+    const ledBtn = document.getElementById("btn-ledger");
+    ledBtn.addEventListener("click", () => {
+      if (!state) return;
+      const led = state.ledger || [];
+      showModal({
+        eyebrow: state.ranch + " · " + state.year,
+        title: "The ranch ledger",
+        body: led.length
+          ? led.map((l) => '<p class="copy" style="margin:0 0 6px"><b style="color:var(--wheat)">' + l.y + "</b> — " + l.t + "</p>").join("")
+          : '<p class="copy dim">Blank pages. Go make some history.</p>',
+        choices: [{ label: "Close", kind: "primary", fn: () => {} }],
+      });
+    });
+
+    const dailyBtn = document.getElementById("btn-daily");
+    const syncDaily = () => { dailyBtn.textContent = "Daily Claim #" + dailyNumber(); };
+    syncDaily();
+    dailyBtn.addEventListener("click", () => {
+      const n = dailyNumber();
+      const existing = loadDaily();
+      if (existing && existing.daily === n) {
+        state = existing;
+        lastCash = state.cash;
+        shownCash = state.cash;
+        enterFarm();
+        feed("Back to Daily Claim #" + n + " - " + SEASONS[state.seasonIdx] + " " + state.year + ".", "info");
+        renderAll();
+        return;
+      }
+      setSeed((n * 2654435761) >>> 1);
+      const region = REGIONS[n % REGIONS.length].id;
+      state = newState(region, "Daily " + n);
+      state.daily = n;
+      lastCash = state.cash;
+      shownCash = state.cash;
+      enterFarm();
+      feed("Daily Claim #" + n + ": " + REG().name + ", spring 1883. Same land, same luck - for everyone.", "event");
+      renderAll();
+      save();
+      setTimeout(showTutorial, 300);
     });
   }
 

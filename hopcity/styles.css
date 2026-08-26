@@ -956,6 +956,48 @@ h2 { font-size: clamp(1.4rem, 5vw, 2rem); }
 /* --- Season dots --- */
 .s-dot { border-radius: 3px; }
 
+/* --- Parcel marks --- */
+.parcel-mark {
+  position: absolute; left: 3px; top: 3px;
+  width: 8px; height: 8px;
+  border-left: 2px solid var(--gold);
+  border-top: 2px solid var(--gold);
+  z-index: 2; pointer-events: none;
+}
+
+/* --- Payday jackpot --- */
+.board-frame.jackpot { animation: jackpotPulse .9s ease; }
+@keyframes jackpotPulse {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.015); box-shadow: 0 14px 44px rgba(212,168,67,.35), 0 2px 6px rgba(0,0,0,.4); }
+  100% { transform: scale(1); }
+}
+.jackpot-num {
+  position: absolute; left: 50%; top: 42%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  color: var(--gold);
+  text-shadow: 3px 3px 0 var(--stroke), 0 0 30px rgba(212,168,67,.5);
+  z-index: 20; pointer-events: none;
+  animation: jackpotFloat 1.5s ease-out forwards;
+  white-space: nowrap;
+}
+@keyframes jackpotFloat {
+  0% { opacity: 0; margin-top: 14px; }
+  12% { opacity: 1; margin-top: 0; }
+  75% { opacity: 1; }
+  100% { opacity: 0; margin-top: -30px; }
+}
+
+/* --- Rank-up postcard sub --- */
+.rankup-sub {
+  margin: -6px 0 18px;
+  font-size: .88rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
 .board-col .play-bar { margin-top: 10px; }
 
 /* FAQ + reference */

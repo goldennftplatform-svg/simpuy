@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=16" />
+  <link rel="stylesheet" href="styles.css?v=17" />
 </head>
 <body>
   <div class="sky sky-hop" id="sky" aria-hidden="true">
@@ -74,6 +74,7 @@
       <p class="hero-sub">The Northwest hop boom, 1883. Buy land, plant bines, dodge mildew and busted markets — and out-earn the barons to become Hop King of the World.</p>
       <div class="pick-stack">
         <button class="btn primary pulse" id="btn-new" type="button">Stake a new claim</button>
+        <button class="btn gold" id="btn-daily" type="button">Daily Claim</button>
         <button class="btn ghost hidden" id="btn-continue" type="button">Continue your empire</button>
         <button class="btn ghost" id="btn-how" type="button">How to play</button>
         <button class="btn ghost" id="btn-faq" type="button">FAQ</button>
@@ -210,6 +211,7 @@
         <div class="hud-block hud-brand">
           <span class="tiny-brand"><svg class="brand-mark sm"><use href="#i-cone"/></svg>HOPCITY</span>
           <span id="hud-ranch">Ranch</span>
+          <span class="title-badge hidden" id="hud-daily" style="background:var(--gold)">DAILY</span>
           <span class="title-badge" id="hud-title">Squatter</span>
         </div>
         <div class="hud-block">
@@ -342,6 +344,7 @@
     <div class="rankup-card">
       <p class="eyebrow">The territory knows your name</p>
       <h1 id="rankup-title">Yard Boss</h1>
+      <p class="rankup-sub" id="rankup-sub"></p>
       <button class="btn primary" id="rankup-ok" type="button">Carry on</button>
     </div>
   </div>
@@ -349,9 +352,12 @@
   <footer class="dock">
     <span class="dock-brand">HOPCITY</span>
     <span class="dock-step" id="dock-step">Spring 1883 · plant near water</span>
-    <button class="dock-btn" id="btn-sound" type="button">Sound: On</button>
+    <span>
+      <button class="dock-btn" id="btn-ledger" type="button">Ledger</button>
+      <button class="dock-btn" id="btn-sound" type="button">Sound: On</button>
+    </span>
   </footer>
 
-  <script src="app.js?v=16"></script>
+  <script src="app.js?v=17"></script>
 </body>
 </html>
