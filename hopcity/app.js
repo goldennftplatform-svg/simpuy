@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const SAVE_KEY = "hopcity_save_v4";
+  const SAVE_KEY = "hopcity_save_v5";
   const BOARD_N = 10;
   const TILES_N = BOARD_N * BOARD_N;
   const CENTER = 45;
@@ -351,7 +351,7 @@
 
   function newState(regionId, name) {
     return {
-      v: 2,
+      v: 3,
       regionId,
       ranch: name || "Meeker & Sons",
       year: 1883,
@@ -367,6 +367,9 @@
       rivalPoach: 0,
       wageWar: false,
       poachedThisYear: false,
+      storyBeat: 4 + Math.floor(Math.random() * 4),
+      storyDone: false,
+      landGrab: null,
       rivals: RIVALS_SEED.map((x) => ({ ...x, passed: false })),
       crownedRival: null,
       won: false,
@@ -438,7 +441,7 @@
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return null;
       const s = JSON.parse(raw);
-      return s && s.v === 2 && !s.lost ? s : null;
+      return s && s.v === 3 && !s.lost ? s : null;
     } catch (e) { return null; }
   }
   function wipeSave() {
@@ -622,6 +625,10 @@
 
   function maybeEvent(phase, done) {
     const spray = state.summerOrder === "spray";
+    if (!state.storyDone && phase === "summer" && state.year >= (state.storyBeat || 99)) {
+      storyEvent(done);
+      return;
+    }
     const summerChance = spray ? 0.28 : 0.55;
     if (Math.random() > (phase === "summer" ? summerChance : 0.5)) return done();
     const def = pickEvent(phase);
@@ -644,8 +651,10 @@
     }
   }
 
+  const farmScale = () => 1 + countType("yard") / 20;
+
   function aphidEvent() {
-    const spray = Math.round(180 * REG().costMul);
+    const spray = Math.round(180 * REG().costMul * farmScale());
     return {
       title: "Hop aphids ride the south wind",
       copy: "Grey-green lice massing under the leaves. Nicotine spray costs " + fmt$(spray) + ". Or gamble on ladybugs and a hot dry week.",
@@ -659,7 +668,7 @@
   }
 
   function mildewEvent() {
-    const spray = Math.round(220 * REG().costMul);
+    const spray = Math.round(220 * REG().costMul * farmScale());
     return {
       title: "Downy mildew spots the leaves",
       copy: "A humid week and the lower leaves show yellow. Bordeaux spray runs " + fmt$(spray) + "; ignoring it risks the whole block.",
@@ -684,7 +693,7 @@
   }
 
   function kilnFireEvent() {
-    const brigade = Math.round(120 * REG().costMul);
+    const brigade = Math.round(120 * REG().costMul * farmScale());
     return {
       title: "Lamp fire in the kiln!",
       copy: "A draft knocked a lamp into the drying racks. A bucket line might save the house - " + fmt$(brigade) + " in damages and whiskey promised.",
@@ -787,6 +796,67 @@
       copy: "The Northern Pacific quietly bumped freight rates on agricultural bales.",
       outcome: "Hauling fees up 6% for one year.",
       fn: () => { state.railPenalty = 0.06; },
+    };
+  }
+
+  // --- Once-per-game story beat (fires summer of year 4-7) ---
+  function storyEvent(done) {
+    state.storyDone = true;
+    const pool = [];
+    if (countType("kiln") > 0) pool.push(kilnStrikeEvent);
+    pool.push(marketCraterEvent, foremanEvent);
+    const def = pool[Math.floor(Math.random() * pool.length)]();
+    feed(def.title, "event");
+    const choices = def.choices
+      ? def.choices.map((c) => ({
+          label: c.label, sub: c.sub, kind: c.kind,
+          fn: () => { c.fn(); if (c.result) feed(c.result, c.feedKind || "info"); done(); },
+        }))
+      : [{ label: "Weather it", kind: "primary",
+          fn: () => { if (def.fn) def.fn(); if (def.outcome) feed(def.outcome, "event"); done(); } }];
+    showModal({
+      eyebrow: "DISPATCH · " + SEASONS[state.seasonIdx] + " " + state.year,
+      title: def.title,
+      body: '<p class="copy">' + def.copy + "</p>",
+      choices,
+    });
+  }
+
+  function kilnStrikeEvent() {
+    const rebuild = Math.round(300 * REG().costMul);
+    return {
+      title: "Lightning takes the kiln",
+      copy: "A dry storm rolled over the ridge at dusk and took your newest kiln with it. The men stand around smelling char.",
+      choices: [
+        { label: "Rebuild at once", sub: "-" + fmt$(rebuild) + " · kiln back before harvest", kind: "primary",
+          fn: () => { state.cash -= rebuild; }, result: "Fresh-mortared and firing by morning.", feedKind: "good" },
+        { label: "Let it lie", sub: "one kiln gone for this fall", kind: "danger",
+          fn: () => loseKiln(), result: "One kiln gone to charcoal.", feedKind: "bad" },
+      ],
+    };
+  }
+
+  function marketCraterEvent() {
+    return {
+      title: "The bottom drops out",
+      copy: "Two giant Eastern crops came in at once, and the cables say buyers are walking away from Pacific bales entirely.",
+      outcome: "Prices crater for a full market year.",
+      fn: () => { state.market.mod = 0.55; },
+    };
+  }
+
+  function foremanEvent() {
+    const chase = Math.round(120 * REG().costMul);
+    const payroll = Math.round(250 * REG().costMul * (1 + countType("yard") / 20));
+    return {
+      title: "Your foreman ran off with the payroll",
+      copy: "Took the book money and the schoolteacher's daughter clear to Tacoma. The crews stand in the road, arms crossed, waiting to be paid.",
+      choices: [
+        { label: "Ride after him", sub: "-" + fmt$(chase) + " · payroll recovered", kind: "primary",
+          fn: () => { state.cash -= chase; }, result: "Dragged him back by his collar. Crews paid full.", feedKind: "good" },
+        { label: "Let him keep it", sub: "-" + fmt$(payroll) + " · vigor suffers", kind: "danger",
+          fn: () => { state.cash -= payroll; damageAllYards(0.08); }, result: "Paid from your own pocket. A sour summer.", feedKind: "bad" },
+      ],
     };
   }
 
@@ -926,7 +996,10 @@
     if (net > 0) { coinBurst(null); sfx("coin"); } else { sfx("bad"); }
     state.rivalPoach = 0;
     state.summerOrder = null;
-    if (spoiled > 0) feed("Spoiled " + fmtLb(spoiled) + " with no kiln room - only " + fmtLb(WET_CAP) + " sold wet.", "bad");
+    if (spoiled > 0) {
+      state.market.rep = Math.max(-0.1, state.market.rep - 0.04);
+      feed("Spoiled " + fmtLb(spoiled) + " wet - buyers remember. Reputation dented.", "bad");
+    }
 
     if (breached > 0) {
       mkt.repPenalty = 0.08;
@@ -977,6 +1050,13 @@
     if (state.marketHist.length > 12) state.marketHist.shift();
 
     const worth = netWorth();
+    if (!state.landGrab && worth >= 12000) {
+      const rv = state.rivals.reduce((a, b) => (a.worth >= b.worth ? a : b));
+      state.landGrab = rv.name;
+      rv.grab = 2;
+      rv.worth = Math.round(rv.worth * 1.5);
+      feed(rv.name + " just bought half the valley on credit - he's making a run at the crown!", "gold");
+    }
     state.rivals.forEach((rv) => {
       if (!rv.passed && worth > rv.worth && rv.worth > 0) {
         rv.passed = true;
@@ -987,6 +1067,7 @@
       const chased = worth > rv.worth * 1.5;
       let g = early ? 0.12 + Math.random() * 0.1 : 0.07 + Math.random() * 0.09;
       if (chased) g = 0.1 + Math.random() * 0.1;
+      if (rv.grab > 0) { g = 0.25; rv.grab--; }
       rv.worth = Math.round(rv.worth * (1 + g));
       if (!state.crownedRival && rv.worth >= RIVAL_KING) {
         state.crownedRival = rv.name;
@@ -1074,7 +1155,7 @@
 
   function checkEnd(done) {
     const worth = netWorth();
-    if (state.cash < BROKE_LINE && state.seasonIdx === 3 && !state.lost) {
+    if (state.cash < BROKE_LINE && !state.lost) {
       state.lost = true;
       wipeSave();
       showModal({
@@ -1345,7 +1426,7 @@
     const yards = countType("yard");
     const order = state.summerOrder;
     const trainCost = yards * 8;
-    const sprayCost = Math.round(140 * REG().costMul);
+    const sprayCost = Math.round((140 + yards * 5) * REG().costMul);
     const handsCost = Math.round(110 * REG().costMul);
     const thirsty = thirstyCount();
     const haulCost = thirsty * 6;
@@ -1392,7 +1473,7 @@
         if (isYard(i)) state.tiles[i].b.health = clamp(state.tiles[i].b.health + 0.1, 0.15, 1);
       }
     });
-    wireOrder("act-spray", "spray", Math.round(140 * REG().costMul), "Copper and sulfur dusted on every row - insurance against the season.");
+    wireOrder("act-spray", "spray", sprayCost, "Copper and sulfur dusted on every row - insurance against the season.");
     wireOrder("act-hands", "hands", Math.round(110 * REG().costMul), "Extra pickers hired for the fall run.");
     const hw = document.getElementById("act-haul");
     if (hw) hw.addEventListener("click", () => {
