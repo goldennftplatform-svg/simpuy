@@ -1076,6 +1076,26 @@
     });
   }
 
+  function projectMarketableLb(nextYear) {
+    const yards = [];
+    for (let i = 0; i < TILES_N; i++) if (isYard(i)) yards.push(i);
+    if (!yards.length) return 0;
+    let picked = 0;
+    yards.forEach((i) => {
+      const b = state.tiles[i].b;
+      const v = VARIETIES[b.v];
+      const matured = (state.year + (nextYear ? 1 : 0)) - b.plantedYear >= 1 ? 1 : 0.68;
+      picked += 1000 * REG().yieldMul * v.yield * b.health * matured;
+    });
+    const kilnCap = countType("kiln") * 7000;
+    const processed = Math.min(picked, kilnCap);
+    const laborCap = countType("cabin") * 6 + (state.summerOrder === "hands" ? 3 : 0);
+    const covered = Math.min(yards.length, laborCap);
+    const shortFrac = (yards.length - covered) / yards.length;
+    const laborLoss = processed * shortFrac * 0.35;
+    return Math.max(0, processed - laborLoss);
+  }
+
   function winterModal(done) {
     const exp = Math.max(2000, countType("yard") * 950);
     const mkOffer = (frac, adj) => ({
@@ -1084,6 +1104,11 @@
       adj,
     });
     const offers = [mkOffer(0.35, -0.06), mkOffer(0.55, 0.12)];
+    const proj = projectMarketableLb(true);
+    const already = state.contracts.reduce((a, c) => a + c.lbs, 0);
+    const projLine =
+      '<p class="copy dim" style="font-size:.8rem;margin:2px 0 8px;">Projected harvest: <b style="color:var(--cream)">~' + fmtLb(proj) +
+      "</b> · already contracted: <b style=\"color:var(--cream)\">" + fmtLb(already) + "</b></p>";
     const hist = (state.marketHist || []).slice(-8);
     let spark = "";
     if (hist.length >= 2) {
@@ -1101,14 +1126,19 @@
     }
     const body =
       '<p class="copy dim">Lock a price for next year — or gamble on the spot market.</p>' +
+      projLine +
       spark +
       offers
-        .map((o, idx) =>
-          '<div class="offer"><div class="offer-head"><span>' + fmtLb(o.lbs) + "</span>" +
-          '<span class="offer-price">$' + o.price.toFixed(2) + "/lb</span></div>" +
-          '<div class="offer-sub">' + (o.adj >= 0 ? "+" : "") + Math.round(o.adj * 100) + '% vs today</div>' +
-          '<button class="btn primary compact" data-offer="' + idx + '" type="button">Sign</button></div>'
-        )
+        .map((o, idx) => {
+          const over = already + o.lbs - proj;
+          return (
+            '<div class="offer"><div class="offer-head"><span>' + fmtLb(o.lbs) + "</span>" +
+            '<span class="offer-price">$' + o.price.toFixed(2) + "/lb</span></div>" +
+            '<div class="offer-sub">' + (o.adj >= 0 ? "+" : "") + Math.round(o.adj * 100) + "% vs today" +
+            (over > 0 ? ' · <b style="color:#e07070">overcommits ' + fmtLb(over) + "</b>" : "") + "</div>" +
+            '<button class="btn primary compact" data-offer="' + idx + '" type="button">Sign</button></div>'
+          );
+        })
         .join("");
 
     showModal({
@@ -1245,6 +1275,13 @@
       '<rect x="13.4" y="16" width="2.8" height="5" fill="#2c2010"/>' +
       '<path d="M12 6.5V3.2" stroke="#2c2418" stroke-width="1"/>' +
       '<path class="flag" d="M12 3.2h3.6l-1 1.2 1 1.2H12z" fill="#b85c38"/></svg>',
+    forest:
+      '<svg class="spr spr-forest" viewBox="0 0 24 24">' +
+      '<g class="tree">' +
+      '<path d="M5.5 8L7.4 12L6.5 12L8.3 16.5L2.7 16.5L4.5 12L3.6 12Z"/><rect x="4.9" y="16.5" width="1.2" height="2.8"/>' +
+      '<path d="M11 4L13.8 10L12.4 10L15 16.5L7 16.5L9.6 10L8.2 10Z"/><rect x="10.3" y="16.5" width="1.4" height="3"/>' +
+      '<path d="M17.5 6.5L19.6 11.5L18.6 11.5L20.8 17L14.2 17L16.4 11.5L15.4 11.5Z"/><rect x="16.9" y="17" width="1.2" height="2.6"/>' +
+      "</g></svg>",
   };
   const SEASON_TIPS = [
     "Spring: plant near water - every acre pays this fall",
@@ -1344,8 +1381,9 @@
       let inner = "";
       if (t.b) {
         cls += " b-" + t.b.type;
-        inner += SPRITES[t.b.type] || "";
-      }
+        if (t.b.type === "yard") inner += SPRITES.yard.replace("spr-yard", "spr-yard v-" + t.b.v);
+        else inner += SPRITES[t.b.type] || "";
+      } else if (t.t === "forest") inner += SPRITES.forest;
       if (isYard(i)) {
         const h = t.b.health;
         cls += h >= 0.7 ? " h-ok" : h >= 0.45 ? " h-mid" : " h-low";

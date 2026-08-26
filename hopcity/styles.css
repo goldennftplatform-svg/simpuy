@@ -483,6 +483,16 @@ h2 { font-size: clamp(1.4rem, 5vw, 2rem); }
 .board-frame[data-season="3"] .spr .roof { stroke: #e2e6ea; fill: #dfe3e8; }
 .board-frame[data-season="3"] .spr .flag { fill: #9aa2ac; }
 
+/* Variety cone tints: Cluster green (default) · Fuggle bronze · White Vine pale */
+.spr.v-F .cones { filter: hue-rotate(-38deg) saturate(1.05) brightness(.9); }
+.spr.v-W .cones { filter: hue-rotate(18deg) saturate(.4) brightness(1.4); }
+
+/* Forest trees */
+.spr-forest .tree { fill: #1d3b22; transition: fill .4s; }
+.board-frame[data-season="1"] .spr-forest .tree { fill: #234726; }
+.board-frame[data-season="2"] .spr-forest .tree { fill: #6b5626; }
+.board-frame[data-season="3"] .spr-forest .tree { fill: #2b352e; }
+
 /* Status indicators */
 .tile.irrigated::before {
   content: ""; position: absolute; left: 3px; top: 3px;
